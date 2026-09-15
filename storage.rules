@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// Quy tắc bảo mật Firebase Storage cho Quản Lý Công Việc.
+//
+// File đính kèm hồ sơ được lưu tại:
+//   users/{uid}/profiles/{profileId}/attachments/{attachmentId}
+// Mỗi người dùng CHỈ truy cập được file trong thư mục của chính mình.
+// TUYỆT ĐỐI không dùng "allow read, write: if true".
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid}/profiles/{profileId}/attachments/{fileName} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Mặc định từ chối tất cả các đường dẫn khác.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

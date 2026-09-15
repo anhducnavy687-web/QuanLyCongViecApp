@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// Quy tắc bảo mật Firestore cho Quản Lý Công Việc.
+//
+// Nguyên tắc bắt buộc: mỗi người dùng CHỈ được đọc/ghi dữ liệu của chính
+// mình (users/{uid}/...). TUYỆT ĐỐI không dùng "allow read, write: if true".
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      match /groups/{groupId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /collaborators/{collaboratorId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /profiles/{profileId} {
+        allow read, write: if isOwner(uid);
+
+        match /stages/{stageId} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /milestones/{milestoneId} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /transactions/{transactionId} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /attachments/{attachmentId} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /collaboratorAssignments/{assignmentId} {
+          allow read, write: if isOwner(uid);
+        }
+      }
+    }
+
+    // Mặc định từ chối tất cả các đường dẫn khác.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
