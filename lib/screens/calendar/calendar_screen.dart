@@ -106,56 +106,69 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Lịch')),
-      body: Column(
-        children: [
-          _MonthHeader(
-            month: _visibleMonth,
-            onPrev: () => setState(() {
-              _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month - 1);
-            }),
-            onNext: () => setState(() {
-              _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1);
-            }),
-          ),
-          _MonthGrid(
-            month: _visibleMonth,
-            selectedDay: _selectedDay,
-            eventsByDay: eventsByDay,
-            colorFor: _colorFor,
-            onSelect: (d) => setState(() => _selectedDay = d),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: selectedEvents.isEmpty
-                ? EmptyState(
-                    icon: Icons.event_available_rounded,
-                    title: 'Không có sự kiện',
-                    message: 'Ngày ${_selectedDay.ddMMyyyy} không có deadline hay mốc nào.',
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    itemCount: selectedEvents.length,
-                    itemBuilder: (context, i) {
-                      final e = selectedEvents[i];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            radius: 6,
-                            backgroundColor: _colorFor(e.kind),
-                          ),
-                          title: Text(e.title),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ProfileDetailScreen(profileId: e.profileId),
-                            ),
-                          ),
+      // Toàn bộ trang nằm trong một SingleChildScrollView thay vì tách
+      // header/lưới (kích thước tự nhiên) + Expanded(danh sách sự kiện):
+      // ở màn hình thấp (điện thoại nhỏ, xoay ngang...), header + lưới 6
+      // hàng có thể cao hơn không gian còn lại, gây tràn RenderFlex nếu
+      // dùng Column cố định. Cuộn cả trang tránh được lỗi này mà không
+      // đánh đổi trải nghiệm (lịch tháng vẫn hiển thị đầy đủ, chỉ cuộn
+      // xuống để xem hết danh sách sự kiện khi cần).
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            _MonthHeader(
+              month: _visibleMonth,
+              onPrev: () => setState(() {
+                _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month - 1);
+              }),
+              onNext: () => setState(() {
+                _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1);
+              }),
+            ),
+            _MonthGrid(
+              month: _visibleMonth,
+              selectedDay: _selectedDay,
+              eventsByDay: eventsByDay,
+              colorFor: _colorFor,
+              onSelect: (d) => setState(() => _selectedDay = d),
+            ),
+            const Divider(height: 1),
+            if (selectedEvents.isEmpty)
+              SizedBox(
+                height: 240,
+                child: EmptyState(
+                  icon: Icons.event_available_rounded,
+                  title: 'Không có sự kiện',
+                  message: 'Ngày ${_selectedDay.ddMMyyyy} không có deadline hay mốc nào.',
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                itemCount: selectedEvents.length,
+                itemBuilder: (context, i) {
+                  final e = selectedEvents[i];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        radius: 6,
+                        backgroundColor: _colorFor(e.kind),
+                      ),
+                      title: Text(e.title),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ProfileDetailScreen(profileId: e.profileId),
                         ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
       ),
     );
   }

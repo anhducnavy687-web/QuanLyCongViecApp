@@ -61,6 +61,9 @@ class Profile {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? completedAt;
+  final String? waitingReason;
+  final DateTime? waitingSince;
+  final DateTime? expectedResponseDate;
 
   const Profile({
     required this.id,
@@ -78,6 +81,9 @@ class Profile {
     required this.createdAt,
     required this.updatedAt,
     this.completedAt,
+    this.waitingReason,
+    this.waitingSince,
+    this.expectedResponseDate,
   });
 
   Profile copyWith({
@@ -98,6 +104,12 @@ class Profile {
     DateTime? completedAt,
     bool clearDeadline = false,
     bool clearCompletedAt = false,
+    String? waitingReason,
+    bool clearWaitingReason = false,
+    DateTime? waitingSince,
+    bool clearWaitingSince = false,
+    DateTime? expectedResponseDate,
+    bool clearExpectedResponseDate = false,
   }) {
     return Profile(
       id: id ?? this.id,
@@ -116,6 +128,14 @@ class Profile {
       updatedAt: updatedAt ?? this.updatedAt,
       completedAt:
           clearCompletedAt ? null : (completedAt ?? this.completedAt),
+      waitingReason: clearWaitingReason
+          ? null
+          : (waitingReason ?? this.waitingReason),
+      waitingSince:
+          clearWaitingSince ? null : (waitingSince ?? this.waitingSince),
+      expectedResponseDate: clearExpectedResponseDate
+          ? null
+          : (expectedResponseDate ?? this.expectedResponseDate),
     );
   }
 
@@ -140,6 +160,13 @@ class Profile {
       completedAt: json['completedAt'] != null
           ? DateTime.parse(json['completedAt'] as String)
           : null,
+      waitingReason: json['waitingReason'] as String?,
+      waitingSince: json['waitingSince'] != null
+          ? DateTime.parse(json['waitingSince'] as String)
+          : null,
+      expectedResponseDate: json['expectedResponseDate'] != null
+          ? DateTime.parse(json['expectedResponseDate'] as String)
+          : null,
     );
   }
 
@@ -160,6 +187,9 @@ class Profile {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'completedAt': completedAt?.toIso8601String(),
+      'waitingReason': waitingReason,
+      'waitingSince': waitingSince?.toIso8601String(),
+      'expectedResponseDate': expectedResponseDate?.toIso8601String(),
     };
   }
 }

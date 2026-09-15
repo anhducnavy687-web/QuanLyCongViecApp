@@ -14,6 +14,8 @@ class DemoSeedBundle {
   final List<Collaborator> collaborators;
   final List<CollaboratorAssignment> assignments;
   final List<Attachment> attachments;
+  final List<TaskItem> tasks;
+  final List<TimelineEvent> timelineEvents;
 
   const DemoSeedBundle({
     required this.groups,
@@ -24,6 +26,8 @@ class DemoSeedBundle {
     required this.collaborators,
     required this.assignments,
     required this.attachments,
+    required this.tasks,
+    required this.timelineEvents,
   });
 }
 
@@ -116,12 +120,31 @@ DemoSeedBundle buildDemoSeed() {
   final transactions = <MoneyTransaction>[];
   final assignments = <CollaboratorAssignment>[];
   final attachments = <Attachment>[];
+  final tasks = <TaskItem>[];
+  final timelineEvents = <TimelineEvent>[];
 
   int stageSeq = 1;
   int msSeq = 1;
   int txSeq = 1;
   int asSeq = 1;
   int attSeq = 1;
+  int taskSeq = 1;
+  int teSeq = 1;
+
+  void logEvent(
+    String profileId,
+    TimelineEventType type,
+    String message,
+    DateTime createdAt,
+  ) {
+    timelineEvents.add(TimelineEvent(
+      id: 'te${teSeq++}',
+      profileId: profileId,
+      type: type,
+      message: message,
+      createdAt: createdAt,
+    ));
+  }
 
   List<WorkStage> makeStages(
     String profileId,
@@ -270,6 +293,40 @@ DemoSeedBundle buildDemoSeed() {
       updatedAt: daysAgo(18),
     ),
   ]);
+  tasks.addAll([
+    TaskItem(
+      id: 'task${taskSeq++}',
+      profileId: p1.id,
+      title: 'Gọi điện nhắc bên mua bổ sung giấy tờ',
+      description: 'Bên mua còn thiếu bản sao CCCD công chứng.',
+      status: TaskStatus.todo,
+      priority: TaskPriority.high,
+      dueDate: daysFromNow(1),
+      createdAt: daysAgo(2),
+      updatedAt: daysAgo(2),
+    ),
+    TaskItem(
+      id: 'task${taskSeq++}',
+      profileId: p1.id,
+      title: 'Nộp hồ sơ tại văn phòng đăng ký đất đai',
+      status: TaskStatus.completed,
+      priority: TaskPriority.normal,
+      dueDate: daysAgo(15),
+      completedAt: daysAgo(15),
+      createdAt: daysAgo(18),
+      updatedAt: daysAgo(15),
+    ),
+  ]);
+  logEvent(p1.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p1.fullName}"', daysAgo(20));
+  logEvent(p1.id, TimelineEventType.stageCompleted,
+      'Hoàn thành bước "Nhận hồ sơ"', daysAgo(17));
+  logEvent(p1.id, TimelineEventType.taskCompleted,
+      'Hoàn thành việc "Nộp hồ sơ tại văn phòng đăng ký đất đai"', daysAgo(15));
+  logEvent(p1.id, TimelineEventType.transaction,
+      'Tiền đã nhận: 4000000 — Tạm ứng lần 2', daysAgo(8));
+  logEvent(p1.id, TimelineEventType.taskCreated,
+      'Tạo việc "Gọi điện nhắc bên mua bổ sung giấy tờ"', daysAgo(2));
 
   // =======================================================================
   // 2. Trần Thị Lan — Hành chính — QUÁ HẠN
@@ -323,6 +380,21 @@ DemoSeedBundle buildDemoSeed() {
       createdAt: daysAgo(20),
     ),
   ]);
+  tasks.add(TaskItem(
+    id: 'task${taskSeq++}',
+    profileId: p2.id,
+    title: 'Liên hệ công an quận nhận kết quả',
+    description: 'Khách hối nhiều lần, cần đi nhận gấp.',
+    status: TaskStatus.todo,
+    priority: TaskPriority.urgent,
+    dueDate: daysAgo(1),
+    createdAt: daysAgo(6),
+    updatedAt: daysAgo(6),
+  ));
+  logEvent(p2.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p2.fullName}"', daysAgo(25));
+  logEvent(p2.id, TimelineEventType.taskCreated,
+      'Tạo việc "Liên hệ công an quận nhận kết quả"', daysAgo(6));
 
   // =======================================================================
   // 3. Lê Hoàng Nam — Đất đai — HÔM NAY
@@ -365,6 +437,20 @@ DemoSeedBundle buildDemoSeed() {
     note: 'Tạm ứng',
     createdAt: daysAgo(30),
   ));
+  tasks.add(TaskItem(
+    id: 'task${taskSeq++}',
+    profileId: p3.id,
+    title: 'Đi nhận kết quả đo đạc tách thửa',
+    status: TaskStatus.todo,
+    priority: TaskPriority.high,
+    dueDate: daysFromNow(0),
+    createdAt: daysAgo(3),
+    updatedAt: daysAgo(3),
+  ));
+  logEvent(p3.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p3.fullName}"', daysAgo(30));
+  logEvent(p3.id, TimelineEventType.taskCreated,
+      'Tạo việc "Đi nhận kết quả đo đạc tách thửa"', daysAgo(3));
 
   // =======================================================================
   // 4. Phạm Thị Hương — Hồ sơ cá nhân — KHÔNG CÓ DEADLINE (trì trệ)
@@ -400,6 +486,20 @@ DemoSeedBundle buildDemoSeed() {
     note: 'Thu đủ',
     createdAt: daysAgo(37),
   ));
+  tasks.add(TaskItem(
+    id: 'task${taskSeq++}',
+    profileId: p4.id,
+    title: 'Gọi hỏi khách xem đã bổ sung ảnh chân dung chưa',
+    status: TaskStatus.todo,
+    priority: TaskPriority.normal,
+    createdAt: daysAgo(20),
+    updatedAt: daysAgo(20),
+    note: 'Chưa có deadline cụ thể, cần theo dõi để không bị quên.',
+  ));
+  logEvent(p4.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p4.fullName}"', daysAgo(37));
+  logEvent(p4.id, TimelineEventType.taskCreated,
+      'Tạo việc "Gọi hỏi khách xem đã bổ sung ảnh chân dung chưa"', daysAgo(20));
 
   // =======================================================================
   // 5. Vũ Đức Thắng — Khác — đang xử lý bình thường
@@ -435,6 +535,20 @@ DemoSeedBundle buildDemoSeed() {
     note: 'Tạm ứng lần 1',
     createdAt: daysAgo(5),
   ));
+  tasks.add(TaskItem(
+    id: 'task${taskSeq++}',
+    profileId: p5.id,
+    title: 'Soạn hồ sơ xin giấy phép kinh doanh',
+    status: TaskStatus.inProgress,
+    priority: TaskPriority.normal,
+    dueDate: daysFromNow(7),
+    createdAt: daysAgo(4),
+    updatedAt: daysAgo(1),
+  ));
+  logEvent(p5.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p5.fullName}"', daysAgo(5));
+  logEvent(p5.id, TimelineEventType.taskCreated,
+      'Tạo việc "Soạn hồ sơ xin giấy phép kinh doanh"', daysAgo(4));
 
   // =======================================================================
   // 6. Đặng Thị Mai — Đất đai — ĐANG CHỜ
@@ -454,6 +568,9 @@ DemoSeedBundle buildDemoSeed() {
     note: 'Đang chờ xác minh nguồn gốc đất từ UBND xã.',
     createdAt: daysAgo(60),
     updatedAt: daysAgo(12),
+    waitingReason: 'Chờ UBND xã xác minh nguồn gốc đất',
+    waitingSince: daysAgo(12),
+    expectedResponseDate: daysFromNow(10),
   );
   profiles.add(p6);
   stages.addAll(makeStages(
@@ -488,6 +605,30 @@ DemoSeedBundle buildDemoSeed() {
     updatedAt: daysAgo(60),
   );
   assignments.add(a2);
+  tasks.add(TaskItem(
+    id: 'task${taskSeq++}',
+    profileId: p6.id,
+    title: 'Chờ UBND xã xác minh nguồn gốc đất',
+    description: 'Đã nộp hồ sơ xác minh, chờ UBND xã phản hồi.',
+    status: TaskStatus.waiting,
+    priority: TaskPriority.normal,
+    dueDate: daysFromNow(10),
+    waitingReason: 'Chờ UBND xã xác minh nguồn gốc đất',
+    waitingSince: daysAgo(12),
+    expectedResponseDate: daysFromNow(10),
+    createdAt: daysAgo(12),
+    updatedAt: daysAgo(12),
+  ));
+  logEvent(p6.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p6.fullName}"', daysAgo(60));
+  logEvent(p6.id, TimelineEventType.stageCompleted,
+      'Hoàn thành bước "Chuẩn bị"', daysAgo(45));
+  logEvent(p6.id, TimelineEventType.statusChanged,
+      'Đổi trạng thái: Đang xử lý → Đang chờ', daysAgo(12));
+  logEvent(p6.id, TimelineEventType.waitingStarted,
+      'Bắt đầu chờ: Chờ UBND xã xác minh nguồn gốc đất', daysAgo(12));
+  logEvent(p6.id, TimelineEventType.taskCreated,
+      'Tạo việc "Chờ UBND xã xác minh nguồn gốc đất"', daysAgo(12));
 
   // =======================================================================
   // 7. Hoàng Văn Long — Hành chính — MỚI TIẾP NHẬN
@@ -514,6 +655,21 @@ DemoSeedBundle buildDemoSeed() {
     [StageStatus.inProgress],
     baseStart: daysAgo(1),
   ));
+  tasks.add(TaskItem(
+    id: 'task${taskSeq++}',
+    profileId: p7.id,
+    title: 'Hướng dẫn khách chuẩn bị giấy tờ hợp pháp hóa lãnh sự',
+    status: TaskStatus.todo,
+    priority: TaskPriority.normal,
+    dueDate: daysFromNow(3),
+    createdAt: daysAgo(1),
+    updatedAt: daysAgo(1),
+  ));
+  logEvent(p7.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p7.fullName}"', daysAgo(1));
+  logEvent(p7.id, TimelineEventType.taskCreated,
+      'Tạo việc "Hướng dẫn khách chuẩn bị giấy tờ hợp pháp hóa lãnh sự"',
+      daysAgo(1));
 
   // =======================================================================
   // 8. Bùi Thị Thu — Hồ sơ cá nhân — HOÀN THÀNH
@@ -564,6 +720,23 @@ DemoSeedBundle buildDemoSeed() {
     note: 'Thu đủ',
     createdAt: daysAgo(45),
   ));
+  tasks.add(TaskItem(
+    id: 'task${taskSeq++}',
+    profileId: p8.id,
+    title: 'Bàn giao hộ chiếu cho khách',
+    status: TaskStatus.completed,
+    priority: TaskPriority.normal,
+    dueDate: daysAgo(14),
+    completedAt: daysAgo(14),
+    createdAt: daysAgo(20),
+    updatedAt: daysAgo(14),
+  ));
+  logEvent(p8.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p8.fullName}"', daysAgo(45));
+  logEvent(p8.id, TimelineEventType.taskCompleted,
+      'Hoàn thành việc "Bàn giao hộ chiếu cho khách"', daysAgo(14));
+  logEvent(p8.id, TimelineEventType.statusChanged,
+      'Đổi trạng thái: Đang xử lý → Hoàn thành', daysAgo(14));
 
   // =======================================================================
   // 9. Ngô Văn Tùng — Khác — SẮP ĐẾN HẠN (2 ngày)
@@ -599,6 +772,20 @@ DemoSeedBundle buildDemoSeed() {
     note: 'Thu đủ',
     createdAt: daysAgo(3),
   ));
+  tasks.add(TaskItem(
+    id: 'task${taskSeq++}',
+    profileId: p9.id,
+    title: 'Chuẩn bị hồ sơ công chứng hợp đồng',
+    status: TaskStatus.inProgress,
+    priority: TaskPriority.normal,
+    dueDate: daysFromNow(1),
+    createdAt: daysAgo(2),
+    updatedAt: daysAgo(1),
+  ));
+  logEvent(p9.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p9.fullName}"', daysAgo(3));
+  logEvent(p9.id, TimelineEventType.taskCreated,
+      'Tạo việc "Chuẩn bị hồ sơ công chứng hợp đồng"', daysAgo(2));
 
   // =======================================================================
   // 10. Đỗ Thị Ngọc — Đất đai — QUÁ HẠN NẶNG, nhiều CTV
@@ -724,6 +911,25 @@ DemoSeedBundle buildDemoSeed() {
     createdAt: daysAgo(30),
     updatedAt: daysAgo(30),
   ));
+  tasks.add(TaskItem(
+    id: 'task${taskSeq++}',
+    profileId: p10.id,
+    title: 'Liên hệ hộ liền kề để hẹn lịch hòa giải lại',
+    description: 'Lần hòa giải trước bất thành, cần hẹn lại buổi khác.',
+    status: TaskStatus.todo,
+    priority: TaskPriority.urgent,
+    dueDate: daysAgo(3),
+    createdAt: daysAgo(10),
+    updatedAt: daysAgo(10),
+  ));
+  logEvent(p10.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p10.fullName}"', daysAgo(90));
+  logEvent(p10.id, TimelineEventType.stageCompleted,
+      'Hoàn thành bước "Chuẩn bị"', daysAgo(75));
+  logEvent(p10.id, TimelineEventType.transaction,
+      'Trả hoa hồng CTV: 2000000 — Thanh toán đủ công đo đạc', daysAgo(35));
+  logEvent(p10.id, TimelineEventType.taskCreated,
+      'Tạo việc "Liên hệ hộ liền kề để hẹn lịch hòa giải lại"', daysAgo(10));
 
   // =======================================================================
   // 11. Trịnh Văn Bình — Khác — ĐÃ HỦY
@@ -770,6 +976,19 @@ DemoSeedBundle buildDemoSeed() {
       createdAt: daysAgo(22),
     ),
   ]);
+  tasks.add(TaskItem(
+    id: 'task${taskSeq++}',
+    profileId: p11.id,
+    title: 'Thu thập giấy tờ thừa kế từ các đồng thừa kế',
+    status: TaskStatus.cancelled,
+    priority: TaskPriority.low,
+    createdAt: daysAgo(48),
+    updatedAt: daysAgo(22),
+  ));
+  logEvent(p11.id, TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${p11.fullName}"', daysAgo(50));
+  logEvent(p11.id, TimelineEventType.statusChanged,
+      'Đổi trạng thái: Đang xử lý → Đã hủy', daysAgo(22));
 
   return DemoSeedBundle(
     groups: groups,
@@ -780,5 +999,7 @@ DemoSeedBundle buildDemoSeed() {
     collaborators: collaborators,
     assignments: assignments,
     attachments: attachments,
+    tasks: tasks,
+    timelineEvents: timelineEvents,
   );
 }

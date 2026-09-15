@@ -5,6 +5,8 @@ import 'collaborator_assignment.dart';
 import 'milestone.dart';
 import 'money_transaction.dart';
 import 'profile.dart';
+import 'task_item.dart';
+import 'timeline_event.dart';
 import 'work_group.dart';
 import 'work_stage.dart';
 
@@ -95,6 +97,8 @@ class ProfileAggregate {
   final List<MoneyTransaction> transactions;
   final List<CollaboratorAssignment> assignments;
   final List<Attachment> attachments;
+  final List<TaskItem> tasks;
+  final List<TimelineEvent> timeline;
 
   ProfileAggregate({
     required this.profile,
@@ -104,13 +108,20 @@ class ProfileAggregate {
     List<MoneyTransaction>? transactions,
     List<CollaboratorAssignment>? assignments,
     List<Attachment>? attachments,
+    List<TaskItem>? tasks,
+    List<TimelineEvent>? timeline,
   })  : stages = List.unmodifiable(
           [...(stages ?? const [])]..sort((a, b) => a.order.compareTo(b.order)),
         ),
         milestones = List.unmodifiable(milestones ?? const []),
         transactions = List.unmodifiable(transactions ?? const []),
         assignments = List.unmodifiable(assignments ?? const []),
-        attachments = List.unmodifiable(attachments ?? const []);
+        attachments = List.unmodifiable(attachments ?? const []),
+        tasks = List.unmodifiable(tasks ?? const []),
+        timeline = List.unmodifiable(
+          [...(timeline ?? const [])]
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+        );
 
   ProfileFinance get finance {
     num received = 0;
@@ -200,4 +211,33 @@ class ProfileAggregate {
   int get overdueMilestoneCount => milestones
       .where((m) => m.timing() == MilestoneTiming.overdue)
       .length;
+
+  /// Hồ sơ đang ở trạng thái "Đang chờ" phản hồi từ bên ngoài.
+  bool get isWaiting => profile.status == ProfileStatus.waiting;
+
+  /// Các việc cần làm chưa hoàn thành/hủy, sắp theo deadline (null cuối).
+  List<TaskItem> get openTasks {
+    final list = tasks
+        .where((t) =>
+            t.status != TaskStatus.completed &&
+            t.status != TaskStatus.cancelled)
+        .toList();
+    list.sort((a, b) {
+      if (a.dueDate == null && b.dueDate == null) return 0;
+      if (a.dueDate == null) return 1;
+      if (b.dueDate == null) return -1;
+      return a.dueDate!.compareTo(b.dueDate!);
+    });
+    return list;
+  }
+
+  List<TaskItem> get overdueTasks => openTasks
+      .where((t) => t.dueDate != null && AppDateUtils.isOverdue(t.dueDate!))
+      .toList();
+
+  List<TaskItem> get todayTasks => openTasks
+      .where((t) => t.dueDate != null && AppDateUtils.isToday(t.dueDate!))
+      .toList();
+
+  int get overdueTaskCount => overdueTasks.length;
 }

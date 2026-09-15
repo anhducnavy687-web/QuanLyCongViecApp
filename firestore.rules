@@ -48,6 +48,14 @@ service cloud.firestore {
         match /collaboratorAssignments/{assignmentId} {
           allow read, write: if isOwner(uid);
         }
+
+        match /tasks/{taskId} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /timelineEvents/{eventId} {
+          allow read, write: if isOwner(uid);
+        }
       }
     }
 

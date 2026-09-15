@@ -27,12 +27,15 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
   late final TextEditingController _descCtrl;
   late final TextEditingController _amountCtrl;
   late final TextEditingController _noteCtrl;
+  late final TextEditingController _waitingReasonCtrl;
 
   String? _groupId;
   late DateTime _startDate;
   DateTime? _deadline;
   late bool _hasDeadline;
   late ProfileStatus _status;
+  DateTime? _waitingSince;
+  DateTime? _expectedResponseDate;
   bool _saving = false;
   String? _deadlineError;
 
@@ -48,11 +51,14 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     _descCtrl = TextEditingController(text: p?.description ?? '');
     _amountCtrl = TextEditingController(text: p != null && p.totalAmount > 0 ? p.totalAmount.toStringAsFixed(0) : '');
     _noteCtrl = TextEditingController(text: p?.note ?? '');
+    _waitingReasonCtrl = TextEditingController(text: p?.waitingReason ?? '');
     _groupId = p?.groupId ?? widget.initialGroupId;
     _startDate = p?.startDate ?? DateTime.now();
     _deadline = p?.deadline;
     _hasDeadline = p?.hasDeadline ?? false;
     _status = p?.status ?? ProfileStatus.newProfile;
+    _waitingSince = p?.waitingSince;
+    _expectedResponseDate = p?.expectedResponseDate;
   }
 
   @override
@@ -63,6 +69,7 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     _descCtrl.dispose();
     _amountCtrl.dispose();
     _noteCtrl.dispose();
+    _waitingReasonCtrl.dispose();
     super.dispose();
   }
 
@@ -86,6 +93,16 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     if (picked != null) setState(() => _deadline = picked);
   }
 
+  Future<void> _pickDate(DateTime? initial, ValueChanged<DateTime> onPicked) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) onPicked(picked);
+  }
+
   Future<void> _save() async {
     setState(() => _deadlineError = null);
     if (!_formKey.currentState!.validate()) return;
@@ -104,6 +121,11 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     setState(() => _saving = true);
     final repo = context.read<AppRepository>();
     final amount = num.tryParse(_amountCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+    final now = DateTime.now();
+    final isWaiting = _status == ProfileStatus.waiting;
+    if (isWaiting) {
+      _waitingSince ??= now;
+    }
 
     if (_isEdit) {
       await repo.updateProfile(widget.profile!.copyWith(
@@ -119,8 +141,14 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
         totalAmount: amount,
         note: _noteCtrl.text.trim(),
         clearDeadline: !_hasDeadline,
-        completedAt: _status == ProfileStatus.completed ? DateTime.now() : null,
+        completedAt: _status == ProfileStatus.completed ? now : null,
         clearCompletedAt: _status != ProfileStatus.completed,
+        waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
+        clearWaitingReason: !isWaiting,
+        waitingSince: isWaiting ? _waitingSince : null,
+        clearWaitingSince: !isWaiting,
+        expectedResponseDate: isWaiting ? _expectedResponseDate : null,
+        clearExpectedResponseDate: !isWaiting,
       ));
     } else {
       await repo.addProfile(Profile(
@@ -136,8 +164,11 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
         status: _status,
         totalAmount: amount,
         note: _noteCtrl.text.trim(),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        createdAt: now,
+        updatedAt: now,
+        waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
+        waitingSince: isWaiting ? _waitingSince : null,
+        expectedResponseDate: isWaiting ? _expectedResponseDate : null,
       ));
     }
 
@@ -198,6 +229,43 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
               ],
               onChanged: (v) => setState(() => _status = v ?? _status),
             ),
+            if (_status == ProfileStatus.waiting) ...[
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 4),
+              Text('Thông tin chờ phản hồi', style: context.textTheme.labelLarge),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _waitingReasonCtrl,
+                decoration: const InputDecoration(labelText: 'Lý do chờ'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () => _pickDate(_waitingSince, (d) => setState(() => _waitingSince = d)),
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Chờ từ ngày'),
+                  child: Text(_waitingSince?.ddMMyyyy ?? 'Hôm nay'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () =>
+                    _pickDate(_expectedResponseDate, (d) => setState(() => _expectedResponseDate = d)),
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Dự kiến có phản hồi',
+                    suffixIcon: _expectedResponseDate == null
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            onPressed: () => setState(() => _expectedResponseDate = null),
+                          ),
+                  ),
+                  child: Text(_expectedResponseDate?.ddMMyyyy ?? 'Chưa rõ'),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             InkWell(
               onTap: _pickStartDate,

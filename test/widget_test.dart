@@ -54,6 +54,11 @@ void main() {
     await _bootDemoApp(tester);
 
     expect(find.byType(ProfileCard), findsWidgets);
+    // Dashboard giờ có thêm header/StatPill/"Việc hôm nay" phía trên các
+    // ProfileCard, nên card đầu tiên không còn chắc chắn nằm trong viewport
+    // ban đầu — cuộn tới trước khi chạm để tránh tap trượt ra ngoài card.
+    await tester.ensureVisible(find.byType(ProfileCard).first);
+    await tester.pump();
     await tester.tap(find.byType(ProfileCard).first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -63,5 +68,39 @@ void main() {
     expect(tester.takeException(), isNull);
     // Trang chi tiết phải mở ra được, có nút "Trích ngang".
     expect(find.byTooltip('Trích ngang'), findsOneWidget);
+    // Hồ sơ 360°: đủ 7 tab, bao gồm 2 tab mới của Phase 1.
+    expect(find.text('Tổng quan'), findsWidgets);
+    expect(find.text('Việc cần làm'), findsWidgets);
+    expect(find.text('Mốc thời gian'), findsWidgets);
+  });
+
+  testWidgets('Dashboard hiển thị "Việc hôm nay" từ dữ liệu Demo', (tester) async {
+    await _bootDemoApp(tester);
+
+    // Dữ liệu Demo seed có sẵn ít nhất một task có dueDate = hôm nay.
+    expect(find.textContaining('Việc hôm nay'), findsOneWidget);
+  });
+
+  testWidgets('Chạm StatPill "Đang chờ" mở SearchScreen với filter tương ứng', (tester) async {
+    await _bootDemoApp(tester);
+
+    await tester.tap(find.text('Đang chờ').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(tester.takeException(), isNull);
+    // SearchScreen mở ra với ô tìm kiếm ở AppBar.
+    expect(find.text('Đang chờ'), findsWidgets);
+  });
+
+  testWidgets('Mở được màn hình Việc cần làm (TasksScreen) từ Dashboard', (tester) async {
+    await _bootDemoApp(tester);
+
+    await tester.tap(find.byTooltip('Việc cần làm'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Việc cần làm'), findsWidgets);
   });
 }

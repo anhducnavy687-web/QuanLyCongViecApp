@@ -49,6 +49,12 @@ abstract class AppRepository extends ChangeNotifier {
   List<CollaboratorAssignment> assignmentsOf(String profileId);
   List<CollaboratorAssignment> assignmentsOfCollaborator(String collaboratorId);
   List<Attachment> attachmentsOf(String profileId);
+  List<TaskItem> tasksOf(String profileId);
+  List<TimelineEvent> timelineOf(String profileId);
+
+  /// Toàn bộ task chưa hoàn thành/hủy trên mọi hồ sơ — dùng cho Dashboard
+  /// (mục "Việc hôm nay") mà không cần duyệt qua allAggregates.
+  List<TaskItem> get allOpenTasks;
 
   ProfileAggregate aggregateOf(String profileId);
   List<ProfileAggregate> get allAggregates;
@@ -120,4 +126,17 @@ abstract class AppRepository extends ChangeNotifier {
   Future<Attachment> addAttachment(Attachment attachment);
   Future<void> renameAttachment(String id, String newFileName);
   Future<void> deleteAttachment(String id);
+
+  // ---------------------------------------------------------------------
+  // Task (việc cần làm)
+  // ---------------------------------------------------------------------
+  Future<TaskItem> addTask(TaskItem task);
+  Future<void> updateTask(TaskItem task);
+  Future<void> deleteTask(String id);
+  Future<void> markTaskCompleted(String id);
+
+  // ---------------------------------------------------------------------
+  // Timeline (lịch sử sự kiện của hồ sơ)
+  // ---------------------------------------------------------------------
+  Future<void> addTimelineNote(String profileId, String message);
 }

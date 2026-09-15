@@ -12,6 +12,8 @@ users/{uid}/profiles/{profileId}/milestones/{milestoneId}
 users/{uid}/profiles/{profileId}/transactions/{transactionId}
 users/{uid}/profiles/{profileId}/attachments/{attachmentId}
 users/{uid}/profiles/{profileId}/collaboratorAssignments/{assignmentId}
+users/{uid}/profiles/{profileId}/tasks/{taskId}
+users/{uid}/profiles/{profileId}/timelineEvents/{eventId}
 ```
 
 Đúng theo đề xuất trong spec, không điều chỉnh. Lý do giữ nguyên:
@@ -20,9 +22,10 @@ users/{uid}/profiles/{profileId}/collaboratorAssignments/{assignmentId}
   vì chúng độc lập với từng hồ sơ cụ thể (một cộng tác viên có thể tham
   gia nhiều hồ sơ).
 - `stages`, `milestones`, `transactions`, `attachments`,
-  `collaboratorAssignments` nằm dưới từng `profiles/{profileId}` vì chúng
-  luôn thuộc về đúng một hồ sơ, giúp việc xóa hồ sơ (xóa toàn bộ
-  subcollection con) và rule bảo mật đơn giản, đồng nhất.
+  `collaboratorAssignments`, `tasks`, `timelineEvents` nằm dưới từng
+  `profiles/{profileId}` vì chúng luôn thuộc về đúng một hồ sơ, giúp việc
+  xóa hồ sơ (xóa toàn bộ subcollection con) và rule bảo mật đơn giản,
+  đồng nhất.
 
 Mỗi document được serialize bằng đúng `toJson()` của model tương ứng
 (xem `lib/models/`) — field name trong Firestore trùng với field name
@@ -35,9 +38,9 @@ trong Dart để tránh một tầng mapping thừa.
 1. Khi `init()` được gọi, mở snapshot listener cho `groups`, `collaborators`
    và `profiles` ở cấp `users/{uid}`.
 2. Với mỗi `profileId` xuất hiện trong danh sách `profiles`, tự động mở
-   thêm 5 snapshot listener cho các subcollection con của hồ sơ đó
+   thêm 7 snapshot listener cho các subcollection con của hồ sơ đó
    (`stages`, `milestones`, `transactions`, `attachments`,
-   `collaboratorAssignments`).
+   `collaboratorAssignments`, `tasks`, `timelineEvents`).
 3. Khi một hồ sơ bị xóa khỏi danh sách, các listener con tương ứng được
    hủy (`cancel()`) để tránh rò rỉ bộ nhớ.
 4. Mỗi lần snapshot cập nhật, cache trong bộ nhớ được ghi đè và

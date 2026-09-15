@@ -39,6 +39,8 @@ class FirebaseRepository extends AppRepository {
   final Map<String, List<MoneyTransaction>> _transactions = {};
   final Map<String, List<CollaboratorAssignment>> _assignments = {};
   final Map<String, List<Attachment>> _attachments = {};
+  final Map<String, List<TaskItem>> _tasks = {};
+  final Map<String, List<TimelineEvent>> _timelineEvents = {};
 
   final List<StreamSubscription> _topLevelSubs = [];
   final Map<String, List<StreamSubscription>> _profileSubs = {};
@@ -142,6 +144,17 @@ class FirebaseRepository extends AppRepository {
           snap.docs.map((d) => Attachment.fromJson(d.data())).toList();
       notifyListeners();
     }));
+    subs.add(doc.collection('tasks').snapshots().listen((snap) {
+      _tasks[profileId] = snap.docs.map((d) => TaskItem.fromJson(d.data())).toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      notifyListeners();
+    }));
+    subs.add(doc.collection('timelineEvents').snapshots().listen((snap) {
+      _timelineEvents[profileId] =
+          snap.docs.map((d) => TimelineEvent.fromJson(d.data())).toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      notifyListeners();
+    }));
 
     _profileSubs[profileId] = subs;
   }
@@ -156,6 +169,8 @@ class FirebaseRepository extends AppRepository {
     _transactions.remove(profileId);
     _assignments.remove(profileId);
     _attachments.remove(profileId);
+    _tasks.remove(profileId);
+    _timelineEvents.remove(profileId);
   }
 
   @override
@@ -240,6 +255,24 @@ class FirebaseRepository extends AppRepository {
       List.unmodifiable(_attachments[profileId] ?? const []);
 
   @override
+  List<TaskItem> tasksOf(String profileId) =>
+      List.unmodifiable(_tasks[profileId] ?? const []);
+
+  @override
+  List<TimelineEvent> timelineOf(String profileId) =>
+      List.unmodifiable(_timelineEvents[profileId] ?? const []);
+
+  @override
+  List<TaskItem> get allOpenTasks {
+    final result = <TaskItem>[];
+    for (final list in _tasks.values) {
+      result.addAll(list.where((t) =>
+          t.status != TaskStatus.completed && t.status != TaskStatus.cancelled));
+    }
+    return result;
+  }
+
+  @override
   ProfileAggregate aggregateOf(String profileId) {
     final profile = profileById(profileId);
     if (profile == null) {
@@ -253,6 +286,8 @@ class FirebaseRepository extends AppRepository {
       transactions: transactionsOf(profileId),
       assignments: assignmentsOf(profileId),
       attachments: attachmentsOf(profileId),
+      tasks: tasksOf(profileId),
+      timeline: timelineOf(profileId),
     );
   }
 
@@ -304,6 +339,8 @@ class FirebaseRepository extends AppRepository {
     final now = DateTime.now();
     final newProfile = profile.copyWith(id: doc.id, createdAt: now, updatedAt: now);
     await doc.set(newProfile.toJson());
+    await _logEvent(doc.id, TimelineEventType.profileCreated,
+        'Tạo hồ sơ "${newProfile.fullName}"');
 
     if (withDefaultStages) {
       const names = [
@@ -332,8 +369,24 @@ class FirebaseRepository extends AppRepository {
 
   @override
   Future<void> updateProfile(Profile profile) async {
+    final old = profileById(profile.id);
     final updated = profile.copyWith(updatedAt: DateTime.now());
     await _profileDoc(profile.id).set(updated.toJson());
+    if (old != null && old.status != updated.status) {
+      await _logEvent(updated.id, TimelineEventType.statusChanged,
+          'Đổi trạng thái: ${old.status.label} → ${updated.status.label}');
+      if (updated.status == ProfileStatus.waiting) {
+        await _logEvent(
+            updated.id,
+            TimelineEventType.waitingStarted,
+            updated.waitingReason?.isNotEmpty == true
+                ? 'Bắt đầu chờ: ${updated.waitingReason}'
+                : 'Bắt đầu chờ phản hồi');
+      } else if (old.status == ProfileStatus.waiting) {
+        await _logEvent(
+            updated.id, TimelineEventType.waitingResolved, 'Kết thúc chờ');
+      }
+    }
   }
 
   @override
@@ -345,6 +398,8 @@ class FirebaseRepository extends AppRepository {
       'transactions',
       'attachments',
       'collaboratorAssignments',
+      'tasks',
+      'timelineEvents',
     ]) {
       final snap = await doc.collection(sub).get();
       final batch = _db.batch();
@@ -409,6 +464,8 @@ class FirebaseRepository extends AppRepository {
       completedAt: now,
       startDate: stage.startDate ?? now,
     ));
+    await _logEvent(stage.profileId, TimelineEventType.stageCompleted,
+        'Hoàn thành bước "${stage.name}"');
     final siblings = stagesOf(stage.profileId);
     final nextIdx = siblings.indexWhere(
       (s) => s.order > stage.order && s.status == StageStatus.pending,
@@ -500,6 +557,8 @@ class FirebaseRepository extends AppRepository {
         ));
       }
     }
+    await _logEvent(t.profileId, TimelineEventType.transaction,
+        '${t.type.label}: ${t.amount}${t.note.isNotEmpty ? ' — ${t.note}' : ''}');
     await _touchProfile(t.profileId);
     return t;
   }
@@ -658,5 +717,107 @@ class FirebaseRepository extends AppRepository {
         return;
       }
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // Task (việc cần làm)
+  // ---------------------------------------------------------------------
+
+  @override
+  Future<TaskItem> addTask(TaskItem task) async {
+    final ref = _profileDoc(task.profileId).collection('tasks');
+    final doc = task.id.isEmpty ? ref.doc() : ref.doc(task.id);
+    final now = DateTime.now();
+    final t = TaskItem(
+      id: doc.id,
+      profileId: task.profileId,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      waitingReason: task.waitingReason,
+      waitingSince: task.waitingSince,
+      expectedResponseDate: task.expectedResponseDate,
+      completedAt: task.completedAt,
+      createdAt: now,
+      updatedAt: now,
+      note: task.note,
+    );
+    await doc.set(t.toJson());
+    await _logEvent(t.profileId, TimelineEventType.taskCreated, 'Tạo việc "${t.title}"');
+    await _touchProfile(t.profileId);
+    return t;
+  }
+
+  @override
+  Future<void> updateTask(TaskItem task) async {
+    final old = _findTask(task.id);
+    final updated = task.copyWith(updatedAt: DateTime.now());
+    await _profileDoc(task.profileId)
+        .collection('tasks')
+        .doc(task.id)
+        .set(updated.toJson());
+    if (old != null &&
+        old.status != updated.status &&
+        updated.status == TaskStatus.completed) {
+      await _logEvent(updated.profileId, TimelineEventType.taskCompleted,
+          'Hoàn thành việc "${updated.title}"');
+    }
+    await _touchProfile(updated.profileId);
+  }
+
+  @override
+  Future<void> deleteTask(String id) async {
+    for (final entry in _tasks.entries) {
+      if (entry.value.any((t) => t.id == id)) {
+        await _profileDoc(entry.key).collection('tasks').doc(id).delete();
+        return;
+      }
+    }
+  }
+
+  @override
+  Future<void> markTaskCompleted(String id) async {
+    final task = _findTask(id);
+    if (task == null) return;
+    final now = DateTime.now();
+    await _profileDoc(task.profileId).collection('tasks').doc(id).set(
+          task.copyWith(status: TaskStatus.completed, completedAt: now, updatedAt: now).toJson(),
+        );
+    await _logEvent(task.profileId, TimelineEventType.taskCompleted,
+        'Hoàn thành việc "${task.title}"');
+    await _touchProfile(task.profileId);
+  }
+
+  TaskItem? _findTask(String taskId) {
+    for (final list in _tasks.values) {
+      for (final t in list) {
+        if (t.id == taskId) return t;
+      }
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------
+  // Timeline (lịch sử sự kiện của hồ sơ)
+  // ---------------------------------------------------------------------
+
+  @override
+  Future<void> addTimelineNote(String profileId, String message) async {
+    await _logEvent(profileId, TimelineEventType.note, message);
+  }
+
+  Future<void> _logEvent(
+      String profileId, TimelineEventType type, String message) async {
+    final ref = _profileDoc(profileId).collection('timelineEvents').doc();
+    final event = TimelineEvent(
+      id: ref.id,
+      profileId: profileId,
+      type: type,
+      message: message,
+      createdAt: DateTime.now(),
+    );
+    await ref.set(event.toJson());
   }
 }

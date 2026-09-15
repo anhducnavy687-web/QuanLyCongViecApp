@@ -99,6 +99,32 @@ completed`. `DashboardScreen` nhóm hồ sơ theo category này và hiển thị
 theo thứ tự đó — hồ sơ **không có deadline** cũng rơi vào nhóm `stalled`
 ("Trì trệ / Không có deadline") để không bị bỏ quên.
 
+## Việc cần làm (Task), Trạng thái chờ (Waiting) và Timeline
+
+Ba bổ sung này (Phase 1) đều theo đúng nguyên tắc kiến trúc sẵn có — không
+đổi cách UI truy cập dữ liệu, chỉ mở rộng `AppRepository`:
+
+- **`TaskItem`** là subcollection con của từng hồ sơ
+  (`profiles/{id}/tasks`), độc lập với `WorkStage` — một hồ sơ có nhiều
+  bước xử lý (tiến trình cố định) nhưng có thể có nhiều việc cần làm phát
+  sinh (task) không nằm trong bước nào cụ thể.
+- **Trạng thái "Đang chờ"** tồn tại ở CẢ `Profile.status` lẫn
+  `TaskItem.status`, dùng chung 3 field `waitingReason` /
+  `waitingSince` / `expectedResponseDate`. `ProfileAggregate.isWaiting`
+  chỉ đọc trạng thái của `Profile`; task đang chờ không tự động làm hồ sơ
+  chuyển sang "Đang chờ" — đây là lựa chọn có chủ đích để một hồ sơ có
+  thể vừa "Đang xử lý" vừa có một task con đang chờ phản hồi.
+- **`TimelineEvent`** là log các sự kiện xảy ra trên một hồ sơ, được các
+  thao tác ghi dữ liệu khác tự động tạo qua helper nội bộ `_logEvent()`
+  (có mặt riêng trong cả `DemoRepository` và `FirebaseRepository`, giữ
+  logic tạo message tiếng Việt nhất quán giữa hai implementation). UI chỉ
+  tự tạo `TimelineEvent` trực tiếp cho một trường hợp: ghi chú tự do qua
+  `addTimelineNote()`.
+- `DashboardScreen` dùng `AppRepository.allOpenTasks` (duyệt thẳng qua
+  toàn bộ task chưa hoàn thành/hủy trên mọi hồ sơ) cho mục "Việc hôm nay"
+  thay vì duyệt qua `allAggregates` — tránh phải tính lại toàn bộ
+  aggregate chỉ để lọc task theo `dueDate`.
+
 ## Offline
 
 [`ConnectivityService`](../lib/services/connectivity_service.dart) theo

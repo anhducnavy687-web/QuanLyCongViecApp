@@ -6,7 +6,7 @@ import '../../repositories/app_repository.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/profile_card.dart';
 
-enum _Filter {
+enum ProfileFilter {
   all,
   needsAction,
   overdue,
@@ -18,33 +18,43 @@ enum _Filter {
   completed,
 }
 
-extension on _Filter {
+extension ProfileFilterX on ProfileFilter {
   String get label {
     switch (this) {
-      case _Filter.all:
+      case ProfileFilter.all:
         return 'Tất cả';
-      case _Filter.needsAction:
+      case ProfileFilter.needsAction:
         return 'Cần xử lý';
-      case _Filter.overdue:
+      case ProfileFilter.overdue:
         return 'Quá hạn';
-      case _Filter.today:
+      case ProfileFilter.today:
         return 'Hôm nay';
-      case _Filter.upcoming:
+      case ProfileFilter.upcoming:
         return 'Sắp đến hạn';
-      case _Filter.inProgress:
+      case ProfileFilter.inProgress:
         return 'Đang xử lý';
-      case _Filter.waiting:
+      case ProfileFilter.waiting:
         return 'Đang chờ';
-      case _Filter.noDeadline:
+      case ProfileFilter.noDeadline:
         return 'Không có deadline';
-      case _Filter.completed:
+      case ProfileFilter.completed:
         return 'Hoàn thành';
     }
   }
 }
 
+/// Màn hình tìm kiếm/lọc hồ sơ. Cũng dùng làm màn hình "drill-down" từ
+/// Dashboard: chạm vào một stat/section trên Dashboard sẽ mở màn hình này
+/// với [initialFilter] tương ứng đã được chọn sẵn.
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final ProfileFilter initialFilter;
+  final bool autofocusSearch;
+
+  const SearchScreen({
+    super.key,
+    this.initialFilter = ProfileFilter.all,
+    this.autofocusSearch = true,
+  });
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -52,31 +62,32 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _searchCtrl = TextEditingController();
-  _Filter _filter = _Filter.all;
+  late ProfileFilter _filter = widget.initialFilter;
   String _query = '';
 
   bool _matchesFilter(ProfileAggregate a) {
     switch (_filter) {
-      case _Filter.all:
+      case ProfileFilter.all:
         return true;
-      case _Filter.needsAction:
+      case ProfileFilter.needsAction:
         return a.deadlineCategory == DeadlineCategory.overdue ||
             a.deadlineCategory == DeadlineCategory.dueToday ||
             a.deadlineCategory == DeadlineCategory.upcoming ||
-            a.deadlineCategory == DeadlineCategory.stalled;
-      case _Filter.overdue:
+            a.deadlineCategory == DeadlineCategory.stalled ||
+            a.isWaiting;
+      case ProfileFilter.overdue:
         return a.deadlineCategory == DeadlineCategory.overdue;
-      case _Filter.today:
+      case ProfileFilter.today:
         return a.deadlineCategory == DeadlineCategory.dueToday;
-      case _Filter.upcoming:
+      case ProfileFilter.upcoming:
         return a.deadlineCategory == DeadlineCategory.upcoming;
-      case _Filter.inProgress:
+      case ProfileFilter.inProgress:
         return a.profile.status == ProfileStatus.inProgress;
-      case _Filter.waiting:
+      case ProfileFilter.waiting:
         return a.profile.status == ProfileStatus.waiting;
-      case _Filter.noDeadline:
+      case ProfileFilter.noDeadline:
         return !a.profile.hasDeadline;
-      case _Filter.completed:
+      case ProfileFilter.completed:
         return a.profile.status == ProfileStatus.completed;
     }
   }
@@ -89,7 +100,12 @@ class _SearchScreenState extends State<SearchScreen> {
         p.phone.toLowerCase().contains(q) ||
         p.workTarget.toLowerCase().contains(q) ||
         p.description.toLowerCase().contains(q) ||
-        (a.group?.name.toLowerCase().contains(q) ?? false);
+        p.status.label.toLowerCase().contains(q) ||
+        (a.group?.name.toLowerCase().contains(q) ?? false) ||
+        a.tasks.any((t) =>
+            t.title.toLowerCase().contains(q) ||
+            t.description.toLowerCase().contains(q) ||
+            t.status.label.toLowerCase().contains(q));
   }
 
   @override
@@ -102,7 +118,7 @@ class _SearchScreenState extends State<SearchScreen> {
       appBar: AppBar(
         title: TextField(
           controller: _searchCtrl,
-          autofocus: true,
+          autofocus: widget.autofocusSearch,
           decoration: const InputDecoration(
             hintText: 'Tìm theo tên, SĐT, đích công việc...',
             border: InputBorder.none,
@@ -118,7 +134,7 @@ class _SearchScreenState extends State<SearchScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               children: [
-                for (final f in _Filter.values)
+                for (final f in ProfileFilter.values)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: ChoiceChip(

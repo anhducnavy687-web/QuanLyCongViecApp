@@ -31,6 +31,9 @@ Demo Mode (không dùng, chỉ giữ trong bộ nhớ) lẫn Firestore.
 | note | String | |
 | createdAt / updatedAt | DateTime | `updatedAt` cũng dùng để phát hiện "trì trệ" |
 | completedAt | DateTime? | |
+| waitingReason | String? | Chỉ có ý nghĩa khi `status == waiting` |
+| waitingSince | DateTime? | Chờ từ ngày nào |
+| expectedResponseDate | DateTime? | Dự kiến có phản hồi (không bắt buộc) |
 
 ## WorkStage — Bước xử lý
 
@@ -117,12 +120,48 @@ dưới dạng số độc lập.
 | sizeBytes | int | |
 | createdAt / updatedAt | DateTime | |
 
+## TaskItem — Việc cần làm
+
+| Field | Kiểu | Ghi chú |
+|---|---|---|
+| id, profileId | String | Mỗi task luôn thuộc về đúng một hồ sơ |
+| title | String | Bắt buộc |
+| description | String | |
+| status | TaskStatus | `todo / inProgress / waiting / completed / cancelled` |
+| priority | TaskPriority | `low / normal / high / urgent` |
+| dueDate | DateTime? | Hạn xử lý của riêng việc này (khác deadline hồ sơ) |
+| waitingReason | String? | Chỉ có ý nghĩa khi `status == waiting` |
+| waitingSince | DateTime? | |
+| expectedResponseDate | DateTime? | |
+| completedAt | DateTime? | |
+| createdAt / updatedAt | DateTime | |
+| note | String | |
+
+`AppRepository.markTaskCompleted(id)` cập nhật `status = completed` và
+`completedAt = now`, đồng thời tự ghi một `TimelineEvent` loại
+`taskCompleted` vào timeline của hồ sơ chứa task đó.
+
+## TimelineEvent — Lịch sử sự kiện của hồ sơ
+
+| Field | Kiểu | Ghi chú |
+|---|---|---|
+| id, profileId | String | |
+| type | TimelineEventType | `profileCreated / profileUpdated / statusChanged / stageCompleted / taskCreated / taskCompleted / waitingStarted / waitingResolved / transaction / note` |
+| message | String | Nội dung hiển thị, tiếng Việt, đã dựng sẵn |
+| createdAt | DateTime | |
+
+Timeline được các thao tác ghi dữ liệu khác (tạo hồ sơ, đổi trạng thái,
+hoàn thành bước, tạo/hoàn thành task, thêm giao dịch...) tự động ghi thêm
+sự kiện tương ứng qua helper `_logEvent()` nội bộ trong từng
+`AppRepository` implementation — UI không bao giờ tự tạo `TimelineEvent`
+trực tiếp, trừ ghi chú tự do qua `addTimelineNote()`.
+
 ## ProfileAggregate — View model tổng hợp
 
 `lib/models/profile_aggregate.dart` không phải là dữ liệu lưu trữ, mà là
 một "view model" gói `Profile` cùng toàn bộ dữ liệu liên quan (stages,
-milestones, transactions, assignments, attachments) và cung cấp các getter
-tính toán:
+milestones, transactions, assignments, attachments, tasks, timeline) và
+cung cấp các getter tính toán:
 
 - `finance` → `ProfileFinance` (totalAmount, received, expense,
   commissionTotal, commissionPaid, remainingToReceive, commissionRemaining)
@@ -130,6 +169,9 @@ tính toán:
 - `deadlineCategory` → `DeadlineCategory` (overdue/dueToday/upcoming/
   stalled/normal/completed) — dùng để sắp xếp ưu tiên trên Dashboard
 - `overdueMilestoneCount`
+- `isWaiting` — true khi `profile.status == ProfileStatus.waiting`
+- `openTasks`, `overdueTasks`, `todayTasks`, `overdueTaskCount` — dẫn xuất
+  từ danh sách `tasks` của hồ sơ
 
 Toàn bộ UI (Dashboard, Group Detail, Search, Profile Detail...) đều dùng
 chung `ProfileAggregate` để đảm bảo logic nhất quán ở một chỗ duy nhất.

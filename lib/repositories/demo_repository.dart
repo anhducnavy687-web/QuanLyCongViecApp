@@ -24,6 +24,8 @@ class DemoRepository extends AppRepository {
   final List<Collaborator> _collaborators = [];
   final List<CollaboratorAssignment> _assignments = [];
   final List<Attachment> _attachments = [];
+  final List<TaskItem> _tasks = [];
+  final List<TimelineEvent> _timelineEvents = [];
 
   @override
   bool get isReady => _ready;
@@ -52,6 +54,8 @@ class DemoRepository extends AppRepository {
     _collaborators.addAll(seed.collaborators);
     _assignments.addAll(seed.assignments);
     _attachments.addAll(seed.attachments);
+    _tasks.addAll(seed.tasks);
+    _timelineEvents.addAll(seed.timelineEvents);
     _ready = true;
     notifyListeners();
   }
@@ -127,6 +131,22 @@ class DemoRepository extends AppRepository {
       _attachments.where((a) => a.profileId == profileId).toList();
 
   @override
+  List<TaskItem> tasksOf(String profileId) =>
+      _tasks.where((t) => t.profileId == profileId).toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+  @override
+  List<TimelineEvent> timelineOf(String profileId) =>
+      _timelineEvents.where((e) => e.profileId == profileId).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  @override
+  List<TaskItem> get allOpenTasks => _tasks
+      .where((t) =>
+          t.status != TaskStatus.completed && t.status != TaskStatus.cancelled)
+      .toList();
+
+  @override
   ProfileAggregate aggregateOf(String profileId) {
     final profile = profileById(profileId);
     if (profile == null) {
@@ -140,6 +160,8 @@ class DemoRepository extends AppRepository {
       transactions: transactionsOf(profileId),
       assignments: assignmentsOf(profileId),
       attachments: attachmentsOf(profileId),
+      tasks: tasksOf(profileId),
+      timeline: timelineOf(profileId),
     );
   }
 
@@ -208,6 +230,7 @@ class DemoRepository extends AppRepository {
         ));
       }
     }
+    _logEvent(id, TimelineEventType.profileCreated, 'Tạo hồ sơ "${newProfile.fullName}"');
     notifyListeners();
     return newProfile;
   }
@@ -224,7 +247,27 @@ class DemoRepository extends AppRepository {
   Future<void> updateProfile(Profile profile) async {
     final idx = _profiles.indexWhere((p) => p.id == profile.id);
     if (idx == -1) return;
-    _profiles[idx] = profile.copyWith(updatedAt: _now);
+    final old = _profiles[idx];
+    final updated = profile.copyWith(updatedAt: _now);
+    _profiles[idx] = updated;
+    if (old.status != updated.status) {
+      _logEvent(
+        updated.id,
+        TimelineEventType.statusChanged,
+        'Đổi trạng thái: ${old.status.label} → ${updated.status.label}',
+      );
+      if (updated.status == ProfileStatus.waiting) {
+        _logEvent(
+          updated.id,
+          TimelineEventType.waitingStarted,
+          updated.waitingReason?.isNotEmpty == true
+              ? 'Bắt đầu chờ: ${updated.waitingReason}'
+              : 'Bắt đầu chờ phản hồi',
+        );
+      } else if (old.status == ProfileStatus.waiting) {
+        _logEvent(updated.id, TimelineEventType.waitingResolved, 'Kết thúc chờ');
+      }
+    }
     notifyListeners();
   }
 
@@ -236,6 +279,8 @@ class DemoRepository extends AppRepository {
     _transactions.removeWhere((t) => t.profileId == id);
     _assignments.removeWhere((a) => a.profileId == id);
     _attachments.removeWhere((a) => a.profileId == id);
+    _tasks.removeWhere((t) => t.profileId == id);
+    _timelineEvents.removeWhere((e) => e.profileId == id);
     notifyListeners();
   }
 
@@ -296,6 +341,11 @@ class DemoRepository extends AppRepository {
       final gIdx = _stages.indexWhere((s) => s.id == next.id);
       _stages[gIdx] = next.copyWith(status: StageStatus.inProgress, startDate: _now);
     }
+    _logEvent(
+      stage.profileId,
+      TimelineEventType.stageCompleted,
+      'Hoàn thành bước "${stage.name}"',
+    );
     _touchProfile(stage.profileId);
   }
 
@@ -368,6 +418,11 @@ class DemoRepository extends AppRepository {
         );
       }
     }
+    _logEvent(
+      t.profileId,
+      TimelineEventType.transaction,
+      '${t.type.label}: ${t.amount}${t.note.isNotEmpty ? ' — ${t.note}' : ''}',
+    );
     _touchProfile(t.profileId);
     return t;
   }
@@ -505,5 +560,97 @@ class DemoRepository extends AppRepository {
   Future<void> deleteAttachment(String id) async {
     _attachments.removeWhere((a) => a.id == id);
     notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------
+  // Task
+  // ---------------------------------------------------------------------
+
+  @override
+  Future<TaskItem> addTask(TaskItem task) async {
+    final t = task.id.isEmpty
+        ? TaskItem(
+            id: _uuid.v4(),
+            profileId: task.profileId,
+            title: task.title,
+            description: task.description,
+            status: task.status,
+            priority: task.priority,
+            dueDate: task.dueDate,
+            waitingReason: task.waitingReason,
+            waitingSince: task.waitingSince,
+            expectedResponseDate: task.expectedResponseDate,
+            completedAt: task.completedAt,
+            createdAt: _now,
+            updatedAt: _now,
+            note: task.note,
+          )
+        : task;
+    _tasks.add(t);
+    _logEvent(t.profileId, TimelineEventType.taskCreated, 'Tạo việc "${t.title}"');
+    _touchProfile(t.profileId);
+    return t;
+  }
+
+  @override
+  Future<void> updateTask(TaskItem task) async {
+    final idx = _tasks.indexWhere((t) => t.id == task.id);
+    if (idx == -1) return;
+    final old = _tasks[idx];
+    final updated = task.copyWith(updatedAt: _now);
+    _tasks[idx] = updated;
+    if (old.status != updated.status &&
+        updated.status == TaskStatus.completed) {
+      _logEvent(
+        updated.profileId,
+        TimelineEventType.taskCompleted,
+        'Hoàn thành việc "${updated.title}"',
+      );
+    }
+    _touchProfile(updated.profileId);
+  }
+
+  @override
+  Future<void> deleteTask(String id) async {
+    _tasks.removeWhere((t) => t.id == id);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> markTaskCompleted(String id) async {
+    final idx = _tasks.indexWhere((t) => t.id == id);
+    if (idx == -1) return;
+    final task = _tasks[idx];
+    _tasks[idx] = task.copyWith(
+      status: TaskStatus.completed,
+      completedAt: _now,
+      updatedAt: _now,
+    );
+    _logEvent(
+      task.profileId,
+      TimelineEventType.taskCompleted,
+      'Hoàn thành việc "${task.title}"',
+    );
+    _touchProfile(task.profileId);
+  }
+
+  // ---------------------------------------------------------------------
+  // Timeline
+  // ---------------------------------------------------------------------
+
+  @override
+  Future<void> addTimelineNote(String profileId, String message) async {
+    _logEvent(profileId, TimelineEventType.note, message);
+    notifyListeners();
+  }
+
+  void _logEvent(String profileId, TimelineEventType type, String message) {
+    _timelineEvents.add(TimelineEvent(
+      id: _uuid.v4(),
+      profileId: profileId,
+      type: type,
+      message: message,
+      createdAt: _now,
+    ));
   }
 }

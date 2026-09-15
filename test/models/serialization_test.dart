@@ -134,5 +134,67 @@ void main() {
       expect(decoded.type, AttachmentType.pdf);
       expect(decoded.sizeBytes, 12345);
     });
+
+    test('Profile với trạng thái Đang chờ (waiting fields)', () {
+      final p = Profile(
+        id: 'p1',
+        groupId: 'g1',
+        fullName: 'Trần Thị B',
+        workTarget: 'Xin cấp sổ đỏ',
+        startDate: now,
+        status: ProfileStatus.waiting,
+        createdAt: now,
+        updatedAt: now,
+        waitingReason: 'Chờ phòng công chứng xác nhận',
+        waitingSince: now,
+        expectedResponseDate: now.add(const Duration(days: 3)),
+      );
+      final decoded = Profile.fromJson(p.toJson());
+      expect(decoded.status, ProfileStatus.waiting);
+      expect(decoded.waitingReason, p.waitingReason);
+      expect(decoded.waitingSince, p.waitingSince);
+      expect(decoded.expectedResponseDate, p.expectedResponseDate);
+    });
+
+    test('TaskItem', () {
+      final t = TaskItem(
+        id: 'tk1',
+        profileId: 'p1',
+        title: 'Gọi điện xác nhận lịch hẹn',
+        description: 'Gọi trước 9h sáng',
+        status: TaskStatus.waiting,
+        priority: TaskPriority.urgent,
+        dueDate: now.add(const Duration(days: 1)),
+        waitingReason: 'Chờ khách xác nhận',
+        waitingSince: now,
+        expectedResponseDate: now.add(const Duration(days: 2)),
+        createdAt: now,
+        updatedAt: now,
+        note: 'Ghi chú task',
+      );
+      final decoded = TaskItem.fromJson(t.toJson());
+      expect(decoded.title, t.title);
+      expect(decoded.status, TaskStatus.waiting);
+      expect(decoded.priority, TaskPriority.urgent);
+      expect(decoded.dueDate, t.dueDate);
+      expect(decoded.waitingReason, t.waitingReason);
+      expect(decoded.waitingSince, t.waitingSince);
+      expect(decoded.expectedResponseDate, t.expectedResponseDate);
+      expect(decoded.note, t.note);
+    });
+
+    test('TimelineEvent', () {
+      final e = TimelineEvent(
+        id: 'e1',
+        profileId: 'p1',
+        type: TimelineEventType.taskCompleted,
+        message: 'Đã hoàn thành việc "Gọi điện xác nhận lịch hẹn"',
+        createdAt: now,
+      );
+      final decoded = TimelineEvent.fromJson(e.toJson());
+      expect(decoded.type, TimelineEventType.taskCompleted);
+      expect(decoded.message, e.message);
+      expect(decoded.createdAt, e.createdAt);
+    });
   });
 }
