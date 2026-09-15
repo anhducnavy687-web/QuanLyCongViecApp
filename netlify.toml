@@ -1,0 +1,27 @@
+# Cấu hình build cho Netlify — cho phép deploy Web Mobile Preview trực
+# tiếp từ Git mà KHÔNG cần cài Flutter trên máy của bạn hay trên máy build
+# của Netlify từ trước: lệnh build bên dưới tự tải Flutter SDK (kênh
+# stable) về máy build của Netlify rồi build Web Preview.
+#
+# Không ảnh hưởng gì tới Android/iOS — file này chỉ được Netlify đọc.
+
+[build]
+  # 1. Tải Flutter SDK (bản mới nhất của kênh stable, chỉ tải phần cần
+  #    thiết nhờ --depth 1 để build nhanh hơn).
+  # 2. Lấy dependency của app (flutter pub get).
+  # 3. Build Web bản release, dùng --no-web-resources-cdn để bundle sẵn
+  #    CanvasKit cục bộ thay vì tải từ gstatic.com khi người dùng mở
+  #    trang — tải trang nhanh hơn và không phụ thuộc CDN ngoài.
+  command = """
+    git clone https://github.com/flutter/flutter.git --depth 1 -b stable _flutter_sdk && \
+    export PATH="$PATH:$PWD/_flutter_sdk/bin" && \
+    flutter config --no-analytics && \
+    flutter pub get && \
+    flutter build web --release --no-web-resources-cdn
+  """
+  publish = "build/web"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

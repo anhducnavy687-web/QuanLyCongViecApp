@@ -26,6 +26,7 @@ Preview** bên dưới.
 - [docs/firestore-schema.md](docs/firestore-schema.md) — cấu trúc Firestore + Storage
 - [docs/firebase-setup.md](docs/firebase-setup.md) — hướng dẫn cấu hình Firebase từ đầu
 - [docs/ui-structure.md](docs/ui-structure.md) — cấu trúc màn hình & điều hướng
+- [docs/deploy-netlify.md](docs/deploy-netlify.md) — deploy Web Preview lên Netlify để có URL online
 
 ## 1. Cài đặt Flutter
 
@@ -109,6 +110,14 @@ Chi tiết kỹ thuật khung Preview: `lib/core/preview/mobile_preview_frame.da
 — đây chỉ là một **container bọc ngoài** toàn bộ `RootScreen`/`MainShell`
 hiện có (qua `MaterialApp.builder`, chỉ kích hoạt khi `kIsWeb`), không có
 bất kỳ screen/widget nào bị nhân bản riêng cho web.
+
+### Có URL online để mở trên mọi thiết bị (không cần cài gì)
+
+Muốn có một link `https://....netlify.app` để mở Preview trên Chrome ở
+bất kỳ laptop/điện thoại nào mà **không cần cài Flutter/Git** trên thiết
+bị đó? Xem hướng dẫn kết nối repo này với Netlify (~2 phút, qua giao diện
+web, Netlify tự build):
+**[docs/deploy-netlify.md](docs/deploy-netlify.md)**.
 
 ## 4. Cấu hình Firebase (tùy chọn, để đồng bộ nhiều thiết bị)
 
