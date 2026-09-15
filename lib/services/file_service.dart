@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
@@ -28,7 +29,22 @@ class FileService {
 
   static const _allowedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'];
 
+  /// Web Preview chỉ dùng để xem giao diện — thao tác file thật (đọc/ghi ổ
+  /// đĩa, mở file, chia sẻ file nhị phân) dựa vào `dart:io` và các plugin
+  /// (open_filex, path_provider) KHÔNG hỗ trợ nền tảng Web, nên bị chặn ở
+  /// đây với thông báo thân thiện thay vì crash. Hành vi trên Android/iOS
+  /// không đổi.
+  void _ensureNotWeb(String action) {
+    if (kIsWeb) {
+      throw FileServiceException(
+        '$action chưa được hỗ trợ trong Web Preview. '
+        'Vui lòng dùng bản Android/iOS để thao tác với file thật.',
+      );
+    }
+  }
+
   Future<PickedFileResult?> pickFile() async {
+    _ensureNotWeb('Chọn file');
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -44,6 +60,7 @@ class FileService {
   }
 
   Future<PickedFileResult?> pickImage() async {
+    _ensureNotWeb('Chọn ảnh');
     try {
       final xfile = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 85);
       if (xfile == null) return null;
@@ -54,6 +71,7 @@ class FileService {
   }
 
   Future<PickedFileResult?> takePhoto() async {
+    _ensureNotWeb('Chụp ảnh');
     try {
       final xfile = await _imagePicker.pickImage(source: ImageSource.camera, imageQuality: 85);
       if (xfile == null) return null;
@@ -81,6 +99,7 @@ class FileService {
   }
 
   Future<void> openFile(String path) async {
+    _ensureNotWeb('Mở file');
     try {
       final file = File(path);
       if (!await file.exists()) {
@@ -100,6 +119,7 @@ class FileService {
   }
 
   Future<void> shareFile(String path, {String? text}) async {
+    _ensureNotWeb('Chia sẻ file');
     try {
       final file = File(path);
       if (!await file.exists()) {

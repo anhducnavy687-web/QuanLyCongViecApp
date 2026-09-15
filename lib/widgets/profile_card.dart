@@ -84,10 +84,12 @@ class ProfileCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   StatusBadge(status: profile.status),
-                  const SizedBox(width: 8),
                   if (category == DeadlineCategory.overdue ||
                       category == DeadlineCategory.dueToday ||
                       category == DeadlineCategory.upcoming)
@@ -95,15 +97,18 @@ class ProfileCard extends StatelessWidget {
                       category: category,
                       text: AppDateUtils.describeDeadline(profile.deadline!),
                     ),
-                  if (aggregate.overdueMilestoneCount > 0) ...[
-                    const SizedBox(width: 8),
-                    Icon(Icons.notifications_active_rounded, size: 14, color: colors.error),
-                    const SizedBox(width: 2),
-                    Text(
-                      '${aggregate.overdueMilestoneCount} mốc quá hạn',
-                      style: TextStyle(fontSize: 11, color: colors.error, fontWeight: FontWeight.w600),
+                  if (aggregate.overdueMilestoneCount > 0)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.notifications_active_rounded, size: 14, color: colors.error),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${aggregate.overdueMilestoneCount} mốc quá hạn',
+                          style: TextStyle(fontSize: 11, color: colors.error, fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
-                  ],
                 ],
               ),
               const SizedBox(height: 12),

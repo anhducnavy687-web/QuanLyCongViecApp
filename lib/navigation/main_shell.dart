@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../repositories/app_repository.dart';
 import '../screens/calendar/calendar_screen.dart';
 import '../screens/groups/groups_screen.dart';
 import '../screens/home/dashboard_screen.dart';
@@ -40,39 +39,40 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // AppRepository được provide ở lib/app.dart (trong MaterialApp.builder,
+    // NẰM TRÊN Navigator) để mọi route được push từ bất kỳ đâu — kể cả từ
+    // ngoài MainShell — đều đọc được, không riêng gì nội dung trong
+    // IndexedStack bên dưới. Ở đây chỉ cần đảm bảo dữ liệu đã sẵn sàng.
     final repo = context.watch<AppSession>().repository;
     if (repo == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return ChangeNotifierProvider<AppRepository>.value(
-      value: repo,
-      child: Scaffold(
-        body: IndexedStack(
-          index: _index,
-          children: _screens,
-        ),
-        floatingActionButton: _index == 0 || _index == 1
-            ? FloatingActionButton.extended(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AddEditProfileScreen()),
-                ),
-                icon: const Icon(Icons.add),
-                label: const Text('Thêm hồ sơ'),
-              )
-            : null,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: [
-            for (final tab in _tabs)
-              NavigationDestination(
-                icon: Icon(tab.icon),
-                selectedIcon: Icon(tab.selectedIcon),
-                label: tab.label,
+    return Scaffold(
+      body: IndexedStack(
+        index: _index,
+        children: _screens,
+      ),
+      floatingActionButton: _index == 0 || _index == 1
+          ? FloatingActionButton.extended(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddEditProfileScreen()),
               ),
-          ],
-        ),
+              icon: const Icon(Icons.add),
+              label: const Text('Thêm hồ sơ'),
+            )
+          : null,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: [
+          for (final tab in _tabs)
+            NavigationDestination(
+              icon: Icon(tab.icon),
+              selectedIcon: Icon(tab.selectedIcon),
+              label: tab.label,
+            ),
+        ],
       ),
     );
   }

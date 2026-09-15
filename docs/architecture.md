@@ -27,6 +27,19 @@ AppRepository (interface, ChangeNotifier)
    └── FirebaseRepository  (Cloud Firestore, đăng nhập Google)
 ```
 
+> **Vị trí Provider của `AppRepository`:** được cung cấp trong
+> `MaterialApp.builder` ở `lib/app.dart` — nằm NGAY TRÊN Navigator nội bộ
+> của `MaterialApp` — chứ không phải bên trong nội dung màn hình "home"
+> (`MainShell`). Lý do: mỗi route được `Navigator.push` (VD:
+> `ProfileDetailScreen`, `AddEditProfileScreen`) được Flutter dựng thành
+> một `OverlayEntry` RIÊNG, là "anh em" chứ không phải "con cháu" trong
+> cây widget của route đang hiển thị trước đó. Nếu Provider chỉ bọc nội
+> dung của route "home" (như thiết kế ban đầu), mọi route được push sau
+> đó sẽ không thấy được Provider này và ném `ProviderNotFoundException`
+> ngay khi mở. Đặt Provider bên trên Navigator đảm bảo mọi route ở mọi
+> độ sâu điều hướng đều đọc được `AppRepository` — áp dụng cho cả
+> Android/iOS lẫn Web.
+
 ## Vòng đời phiên làm việc (Splash → Login/Demo → Home)
 
 [`AppSession`](../lib/navigation/app_session.dart) là bộ điều phối trung
@@ -95,6 +108,35 @@ tra giao diện này mà không cần tắt mạng thật. `FirebaseRepository` 
 Firestore snapshot listener (mặc định có cache offline của Firestore SDK)
 nên vẫn đọc được dữ liệu đã cache khi mất mạng; các thao tác ghi được
 Firestore SDK tự xếp hàng và đồng bộ lại khi có mạng trở lại.
+
+## Web Mobile Preview (chỉ để xem trước UI trên Chrome)
+
+Web KHÔNG phải một nền tảng sản phẩm — Android/iOS vẫn là mục tiêu chính.
+Web chỉ tồn tại để chạy `flutter run -d chrome` và kiểm tra UI mobile
+nhanh trên máy tính, dùng chung toàn bộ `lib/` (models, repositories,
+services, screens, widgets) với Android/iOS.
+
+- `lib/core/preview/mobile_preview_frame.dart` — một **container bọc
+  ngoài**, được gắn vào đúng một chỗ duy nhất: `MaterialApp.builder` trong
+  `lib/app.dart`, chỉ kích hoạt khi `kIsWeb == true`. Nó KHÔNG chứa bất kỳ
+  screen hay logic nghiệp vụ nào — chỉ ép kích thước hiển thị (qua
+  `MediaQuery` override + `Transform.scale`) để nội dung bên trong (chính
+  là `RootScreen`/`MainShell` như trên mobile) trông giống một điện thoại
+  dọc, căn giữa trình duyệt.
+- `lib/core/preview/preview_device.dart` — danh sách preset kích thước
+  (Small Android, Android 6.5", iPhone 15, iPhone Pro Max) để đổi qua lại
+  nhằm kiểm tra responsive, không mô phỏng phần cứng chi tiết.
+- Trên Android/iOS, `kIsWeb` luôn `false` nên `MaterialApp.builder` là
+  `null` và hành vi hoàn toàn như trước khi có Web Preview.
+
+**Plugin không hỗ trợ Web** (`open_filex`, `path_provider`, và việc dùng
+`dart:io File` trực tiếp trong `FileService`): thay vì loại bỏ khỏi
+Android/iOS hoặc để app crash trên web, `FileService` kiểm tra `kIsWeb`
+và trả về `FileServiceException` với thông báo tiếng Việt thân thiện
+("chưa được hỗ trợ trong Web Preview") trước khi chạm tới các API không
+tồn tại trên web. Hành vi trên Android/iOS không đổi. Riêng chia sẻ văn
+bản (`Share.share`, dùng cho Trích ngang) không phụ thuộc `dart:io` nên
+vẫn hoạt động bình thường trên web.
 
 ## Kiến trúc File/Tài liệu
 

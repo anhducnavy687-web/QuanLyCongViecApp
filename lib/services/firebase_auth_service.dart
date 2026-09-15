@@ -28,8 +28,11 @@ class FirebaseAuthService extends AuthService {
       if (Firebase.apps.isEmpty) {
         // Nếu dự án chưa có firebase_options.dart / file cấu hình native,
         // lệnh này sẽ ném lỗi và bị bắt bên dưới — app vẫn chạy bình
-        // thường ở Demo Mode.
-        await Firebase.initializeApp();
+        // thường ở Demo Mode. Trên Web, nếu mạng không tải được Firebase
+        // JS SDK (CDN bị chặn/mất mạng), lời gọi có thể treo vô thời hạn
+        // thay vì ném lỗi ngay — dùng timeout để đảm bảo Splash luôn
+        // chuyển tiếp sang Login/Demo thay vì bị kẹt mãi.
+        await Firebase.initializeApp().timeout(const Duration(seconds: 8));
       }
       _auth = fb_auth.FirebaseAuth.instance;
       _googleSignIn = GoogleSignIn();

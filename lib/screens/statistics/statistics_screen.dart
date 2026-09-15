@@ -46,7 +46,7 @@ class StatisticsScreen extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 2.4,
+            childAspectRatio: 2.15,
             children: [
               _StatCard(label: 'Tổng hồ sơ', value: '$total', color: AppColors.neutral, icon: Icons.folder_copy_outlined),
               _StatCard(label: 'Đang xử lý', value: '$inProgress', color: AppColors.inProgress, icon: Icons.autorenew_rounded),
