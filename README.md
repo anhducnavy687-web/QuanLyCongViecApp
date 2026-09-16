@@ -5,9 +5,9 @@ CRM cá nhân: nhóm công việc, hồ sơ, tiến độ theo bước, mốc th
 bạc, cộng tác viên/hoa hồng, tài liệu đính kèm, lịch và thống kê.
 
 **Responsive Web App là nền tảng triển khai CHÍNH thức của ứng dụng** —
-người dùng mở thẳng URL Netlify trên trình duyệt (điện thoại, máy tính
+người dùng mở thẳng URL GitHub Pages trên trình duyệt (điện thoại, máy tính
 bảng, máy tính) để dùng toàn bộ tính năng, **không cần cài đặt gì**. Luồng
-hoạt động: `GitHub → Netlify build (Flutter Web) → HTTPS URL → Trình duyệt
+hoạt động: `Push branch → GitHub Actions → Flutter Web release build → GitHub Pages → Trình duyệt
 → Firebase (Auth + Firestore)`. Giao diện tự thích ứng theo kích thước màn
 hình (điện thoại/tablet/desktop — xem mục **3** và
 [docs/ui-structure.md](docs/ui-structure.md)). **Android và iOS vẫn được hỗ
@@ -28,12 +28,12 @@ laptop đều thấy cùng một dữ liệu, đồng bộ realtime (xem
 - [docs/firestore-schema.md](docs/firestore-schema.md) — cấu trúc Firestore + Storage
 - [docs/firebase-setup.md](docs/firebase-setup.md) — hướng dẫn cấu hình Firebase từ đầu
 - [docs/ui-structure.md](docs/ui-structure.md) — cấu trúc màn hình, điều hướng & responsive layout
-- [docs/deploy-netlify.md](docs/deploy-netlify.md) — deploy bản Web production lên Netlify để có URL chính thức
+- [docs/deploy-github-pages.md](docs/deploy-github-pages.md) — deploy bản Web production lên GitHub Pages để có URL chính thức
 
 ## 1. Cài đặt Flutter
 
 Yêu cầu Flutter SDK kênh stable (dự án dùng Dart SDK `^3.13.3`, tương ứng
-Flutter 3.35+). Cài đặt theo hướng dẫn chính thức:
+Flutter 3.47.4; workflow ghim phiên bản này). Cài đặt theo hướng dẫn chính thức:
 https://docs.flutter.dev/get-started/install
 
 Kiểm tra môi trường:
@@ -71,7 +71,7 @@ sẵn:
 
 ## 3. Web — Responsive Web App (nền tảng triển khai chính)
 
-Bản production (Netlify, `flutter build web --release`) hiển thị **toàn bộ
+Bản production (GitHub Pages, `flutter build web --release`) hiển thị **toàn bộ
 chiều rộng trình duyệt**, không có khung điện thoại/chrome giả lập nào —
 giao diện tự thích ứng theo 3 mức kích thước (xem
 [`lib/core/responsive/responsive.dart`](lib/core/responsive/responsive.dart)):
@@ -102,7 +102,7 @@ góc, căn giữa (mặc định **iPhone 15, 390×844**), có dropdown **"Previ
 Device"** để đổi kích thước (Small Android, Android 6.5", iPhone 15,
 iPhone Pro Max).
 
-**Bản build production (Netlify, `flutter build web --release`) KHÔNG BAO
+**Bản build production (GitHub Pages, `flutter build web --release`) KHÔNG BAO
 GIỜ hiển thị khung này** — gate là `kIsWeb && !kReleaseMode` trong
 `lib/app.dart`, một cờ biên dịch (compile-time), không phải kiểm tra theo
 tên miền — nên người dùng cuối luôn thấy app chiếm toàn bộ viewport trình
@@ -121,16 +121,29 @@ Demo"** để dùng ngay không cần đăng nhập Google, không cần Firesto
   thường trên web.
 - Đăng nhập Google thật cần cấu hình `flutterfire configure` cho target
   web (xem [docs/firebase-setup.md](docs/firebase-setup.md)) và thêm tên
-  miền Netlify vào **Authorized domains** của Firebase Authentication;
+  miền `anhducnavy687-web.github.io` vào **Authorized domains** của Firebase Authentication;
   Demo Mode không cần bước này.
 
 ### Có URL online để mở trên mọi thiết bị (không cần cài gì)
 
-Muốn có một link `https://....netlify.app` chính thức để mở app trên bất
-kỳ điện thoại/máy tính bảng/laptop nào mà **không cần cài Flutter/Git**
-trên thiết bị đó? Xem hướng dẫn kết nối repo này với Netlify (~2 phút, qua
-giao diện web, Netlify tự build):
-**[docs/deploy-netlify.md](docs/deploy-netlify.md)**.
+Production URL dự kiến:
+**https://anhducnavy687-web.github.io/QuanLyCongViecApp/**.
+
+Từ Phase 1.3, push lên `claude/stoic-goldberg-qcky72` sẽ kích hoạt
+GitHub Actions để kiểm tra, build Flutter Web release và deploy GitHub Pages.
+Netlify không còn là production hosting. Xem cấu hình Pages, cách chạy thủ
+công và điều kiện Firebase trong **[docs/deploy-github-pages.md](docs/deploy-github-pages.md)**.
+
+```bash
+flutter build web --release --base-href "/QuanLyCongViecApp/" --no-web-resources-cdn
+```
+
+`web/index.html` giữ `$FLUTTER_BASE_HREF`; Flutter thay giá trị lúc build.
+Local development vẫn dùng `flutter run -d chrome` như trước.
+
+**Firebase Web chưa được cấu hình trong repository hiện tại.** Demo Mode
+vẫn dùng được; chỉ thêm Authorized Domain chưa đủ để bật đăng nhập Google.
+Xem các bước còn thiếu trong tài liệu deployment trước khi dùng Firebase thật.
 
 ## 4. Cấu hình Firebase (tùy chọn, để đồng bộ nhiều thiết bị)
 

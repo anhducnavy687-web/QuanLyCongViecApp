@@ -67,14 +67,14 @@ class QlcvApp extends StatelessWidget {
             // thật. Đây chỉ là một container hiển thị cho mục đích phát
             // triển, không có màn hình/logic riêng cho web.
             //
-            // QUAN TRỌNG: `flutter build web --release` (lệnh Netlify dùng
-            // để deploy production, xem netlify.toml) có kReleaseMode ==
+            // QUAN TRỌNG: `flutter build web --release` (lệnh GitHub Actions dùng
+            // để deploy production, xem docs/deploy-github-pages.md) có kReleaseMode ==
             // true nên KHÔNG BAO GIỜ bọc khung điện thoại — người dùng mở
             // URL production sẽ thấy app chiếm toàn bộ viewport của trình
             // duyệt như một Responsive Web App thật sự, không phải bản xem
             // trước bị ép vào khung điện thoại. Việc gate này dùng cờ biên
             // dịch `kReleaseMode` của chính Flutter thay vì so khớp domain,
-            // nên hoạt động đúng trên MỌI nơi deploy (Netlify hay khác)
+            // nên hoạt động đúng trên MỌI nơi deploy (GitHub Pages hay khác)
             // mà không cần hardcode tên miền.
             builder: (context, child) {
               final repo = context.watch<AppSession>().repository;

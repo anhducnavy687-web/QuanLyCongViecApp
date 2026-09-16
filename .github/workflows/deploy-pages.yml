@@ -1,0 +1,67 @@
+name: Deploy Flutter Web to GitHub Pages
+
+on:
+  push:
+    branches:
+      - claude/stoic-goldberg-qcky72
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/claude/stoic-goldberg-qcky72'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze
+        # Phase 1.2 has existing info-level lints; errors/warnings still fail.
+        run: flutter analyze --no-fatal-infos
+      - name: Test
+        run: flutter test
+      - name: Build release
+        run: flutter build web --release --base-href "/QuanLyCongViecApp/" --no-web-resources-cdn
+      - name: Verify Pages artifact
+        shell: bash
+        run: |
+          test -f build/web/index.html
+          test -f build/web/flutter_bootstrap.js
+          test -f build/web/main.dart.js
+          test -f build/web/manifest.json
+          test -d build/web/assets
+          test -d build/web/icons
+          grep -F '<base href="/QuanLyCongViecApp/">' build/web/index.html
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

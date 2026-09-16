@@ -57,10 +57,11 @@ tâm:
    `SessionStatus.authenticated`), `RootScreen` hiển thị `MainShell` (5 tab
    điều hướng chính).
 
-`MainShell` bọc toàn bộ cây widget con trong
-`ChangeNotifierProvider<AppRepository>.value(value: session.repository!)`
-— mọi màn hình con dùng `context.watch<AppRepository>()` để đọc dữ liệu và
-tự động rebuild khi có thay đổi (thêm/sửa/xóa hồ sơ, giao dịch...).
+`MaterialApp.builder` trong `lib/app.dart` bọc Navigator bằng
+`ChangeNotifierProvider<AppRepository>.value` khi repository đã sẵn sàng.
+Provider không nằm trong `MainShell`; mọi route được push đều truy cập
+được cùng repository. Các màn hình dùng `context.watch<AppRepository>()`
+để đọc dữ liệu và rebuild khi có thay đổi.
 
 ## An toàn khi Firebase chưa được cấu hình
 
@@ -138,7 +139,7 @@ Firestore SDK tự xếp hàng và đồng bộ lại khi có mạng trở lại
 ## Kiến trúc responsive (Phase 1.2 — Web là nền tảng triển khai chính)
 
 Từ Phase 1.2, Web (build `flutter build web --release`, deploy qua
-Netlify) là nền tảng triển khai CHÍNH của ứng dụng — không còn là bản xem
+GitHub Pages từ Phase 1.3) là nền tảng triển khai CHÍNH của ứng dụng — không còn là bản xem
 trước. Toàn bộ màn hình dùng chung 100% `lib/` (models, repositories,
 services, screens, widgets) với Android/iOS; không có screen/widget riêng
 cho web. Điểm khác biệt duy nhất theo nền tảng là cách các screen tự sắp
@@ -189,7 +190,7 @@ trên Chrome, có từ trước Phase 1.2) được GIỮ LẠI nhưng thu hẹp
 chỉ bật khi `kIsWeb && !kReleaseMode` (xem `lib/app.dart`). `kReleaseMode`
 là cờ Dart biên dịch (compile-time) — `flutter run -d chrome` (dev) có
 `kReleaseMode == false` nên khung vẫn hiện để tiện xem nhanh giao diện
-điện thoại; `flutter build web --release` (Netlify, production) có
+điện thoại; `flutter build web --release` (GitHub Pages, production) có
 `kReleaseMode == true` nên khung KHÔNG BAO GIỜ xuất hiện — người dùng cuối
 luôn thấy app chiếm toàn bộ viewport trình duyệt. Cố tình dùng cờ biên
 dịch thay vì kiểm tra theo domain/URL để không có logic "đoán môi trường"
@@ -281,3 +282,17 @@ gặp màn hình hẹp) tại `statistics_screen.dart`, `money_section.dart`,
 `collaborator_detail_screen.dart`, và một `Row` badge/ưu tiên/hạn trong
 `task_list_section.dart` (đã đổi sang `Wrap` để tự xuống dòng thay vì
 tràn).
+
+## Deployment (Phase 1.3)
+
+`Push claude/stoic-goldberg-qcky72 → GitHub Actions → Flutter Web release → GitHub Pages`.
+Workflow `.github/workflows/deploy-pages.yml` dùng Flutter 3.47.4, build với
+`--base-href "/QuanLyCongViecApp/" --no-web-resources-cdn`, upload `build/web`
+và deploy vào environment `github-pages`. Không commit build output.
+
+Production URL dự kiến: https://anhducnavy687-web.github.io/QuanLyCongViecApp/.
+Routing vẫn dùng `Navigator`/`MaterialPageRoute`, không bật path URL strategy,
+không có đường dẫn con để yêu cầu SPA rewrite. Refresh tải lại app ở URL gốc;
+không có cam kết khôi phục route chi tiết hoặc dữ liệu Demo trong bộ nhớ.
+Firebase, UID isolation, rules và responsive architecture không thay đổi.
+Firebase Web còn thiếu cấu hình project; xem [hướng dẫn triển khai](deploy-github-pages.md).
