@@ -37,6 +37,7 @@ class TaskListSection extends StatelessWidget {
     return SectionCard(
       title: 'Việc cần làm',
       trailing: IconButton(
+        key: const Key('taskListAddButton'),
         icon: const Icon(Icons.add_rounded),
         tooltip: 'Thêm việc',
         onPressed: () => Navigator.of(context).push(
@@ -91,13 +92,14 @@ class _TaskTile extends StatelessWidget {
           color: task.status == TaskStatus.cancelled ? context.colors.outline : null,
         ),
       ),
-      subtitle: Row(
+      subtitle: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           TaskStatusBadge(status: task.status, compact: true),
-          const SizedBox(width: 6),
           TaskPriorityChip(priority: task.priority),
-          if (task.dueDate != null) ...[
-            const SizedBox(width: 6),
+          if (task.dueDate != null)
             Text(
               task.dueDate!.ddMM,
               style: TextStyle(
@@ -106,7 +108,6 @@ class _TaskTile extends StatelessWidget {
                 fontWeight: overdue ? FontWeight.bold : null,
               ),
             ),
-          ],
         ],
       ),
       trailing: PopupMenuButton<String>(

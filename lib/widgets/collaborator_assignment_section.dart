@@ -21,6 +21,7 @@ class CollaboratorAssignmentSection extends StatelessWidget {
       title: 'Cộng tác viên',
       trailing: IconButton(
         icon: const Icon(Icons.person_add_alt_1_rounded),
+        tooltip: 'Gán cộng tác viên',
         onPressed: () => _showAssignDialog(context, repo),
       ),
       child: assignments.isEmpty

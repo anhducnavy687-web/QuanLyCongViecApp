@@ -32,7 +32,7 @@ void main() {
 
     test('describeDeadline trả về chuỗi tiếng Việt đúng ngữ cảnh', () {
       expect(AppDateUtils.describeDeadline(DateTime(2026, 9, 10), from: today), 'Quá hạn 5 ngày');
-      expect(AppDateUtils.describeDeadline(DateTime(2026, 9, 15), from: today), 'Đến hạn hôm nay');
+      expect(AppDateUtils.describeDeadline(DateTime(2026, 9, 15), from: today), 'Hạn hôm nay');
       expect(AppDateUtils.describeDeadline(DateTime(2026, 9, 16), from: today), 'Còn 1 ngày');
       expect(AppDateUtils.describeDeadline(DateTime(2026, 9, 20), from: today), 'Còn 5 ngày');
     });

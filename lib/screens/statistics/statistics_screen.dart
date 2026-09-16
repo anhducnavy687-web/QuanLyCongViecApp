@@ -98,10 +98,13 @@ class StatisticsScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label),
-          Text(MoneyUtils.format(value), style: TextStyle(fontWeight: FontWeight.w700, color: color)),
+          Expanded(child: Text(label, overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 8),
+          Text(
+            MoneyUtils.format(value),
+            style: TextStyle(fontWeight: FontWeight.w700, color: color),
+          ),
         ],
       ),
     );
@@ -127,13 +130,25 @@ class _StatCard extends StatelessWidget {
         children: [
           Icon(icon, color: color),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-              Text(label, style: TextStyle(fontSize: 11.5, color: color.withValues(alpha: 0.85))),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.5, color: color.withValues(alpha: 0.85)),
+                ),
+              ],
+            ),
           ),
         ],
       ),

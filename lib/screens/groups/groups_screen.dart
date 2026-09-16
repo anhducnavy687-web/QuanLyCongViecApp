@@ -22,6 +22,7 @@ class GroupsScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.add_rounded),
+            tooltip: 'Thêm nhóm',
             onPressed: () => showModalBottomSheet(
               context: context,
               isScrollControlled: true,

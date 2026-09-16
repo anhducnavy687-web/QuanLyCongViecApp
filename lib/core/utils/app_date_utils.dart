@@ -64,7 +64,7 @@ class AppDateUtils {
   static String describeDeadline(DateTime deadline, {DateTime? from}) {
     final d = daysUntil(deadline, from: from);
     if (d < 0) return 'Quá hạn ${-d} ngày';
-    if (d == 0) return 'Đến hạn hôm nay';
+    if (d == 0) return 'Hạn hôm nay';
     if (d == 1) return 'Còn 1 ngày';
     return 'Còn $d ngày';
   }

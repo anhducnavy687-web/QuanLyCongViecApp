@@ -6,6 +6,7 @@ import '../../core/extensions/datetime_extensions.dart';
 import '../../core/utils/validators.dart';
 import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
+import '../../widgets/waiting_reason_chips.dart';
 
 /// Form Thêm/Sửa việc cần làm gắn với một hồ sơ. Khi trạng thái là
 /// "Đang chờ" (waiting), hiển thị thêm các trường lý do chờ / chờ từ ngày /
@@ -179,6 +180,13 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
               const Divider(),
               const SizedBox(height: 4),
               Text('Thông tin chờ phản hồi', style: context.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              WaitingReasonChips(
+                currentValue: _waitingReasonCtrl.text,
+                onSelected: (v) => setState(() {
+                  _waitingReasonCtrl.text = v == 'Khác' ? '' : v;
+                }),
+              ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _waitingReasonCtrl,

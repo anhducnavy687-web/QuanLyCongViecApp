@@ -28,6 +28,7 @@ class MoneySection extends StatelessWidget {
       title: 'Tiền bạc',
       trailing: IconButton(
         icon: const Icon(Icons.add_rounded),
+        tooltip: 'Thêm giao dịch',
         onPressed: () => _showAddTransactionDialog(context, repo),
       ),
       child: Column(
@@ -58,9 +59,9 @@ class MoneySection extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13)),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 8),
           Text(
             MoneyUtils.format(value),
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),

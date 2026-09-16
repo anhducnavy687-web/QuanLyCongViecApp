@@ -22,6 +22,7 @@ class StageStepList extends StatelessWidget {
       title: 'Các bước xử lý',
       trailing: IconButton(
         icon: const Icon(Icons.add_rounded),
+        tooltip: 'Thêm bước xử lý',
         onPressed: () => _showAddStageDialog(context, repo, stages.length),
       ),
       child: stages.isEmpty

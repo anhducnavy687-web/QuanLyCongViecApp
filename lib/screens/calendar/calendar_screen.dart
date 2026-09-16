@@ -187,12 +187,20 @@ class _MonthHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(icon: const Icon(Icons.chevron_left_rounded), onPressed: onPrev),
+          IconButton(
+            icon: const Icon(Icons.chevron_left_rounded),
+            tooltip: 'Tháng trước',
+            onPressed: onPrev,
+          ),
           Text(
             'Tháng ${month.month} / ${month.year}',
             style: context.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
-          IconButton(icon: const Icon(Icons.chevron_right_rounded), onPressed: onNext),
+          IconButton(
+            icon: const Icon(Icons.chevron_right_rounded),
+            tooltip: 'Tháng sau',
+            onPressed: onNext,
+          ),
         ],
       ),
     );

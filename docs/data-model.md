@@ -141,6 +141,12 @@ dưới dạng số độc lập.
 `completedAt = now`, đồng thời tự ghi một `TimelineEvent` loại
 `taskCompleted` vào timeline của hồ sơ chứa task đó.
 
+`waitingReason` (trên cả `Profile` và `TaskItem`) vẫn là `String` tự do —
+UI gợi ý điền nhanh bằng `AppConstants.waitingReasonPresets` (Chờ khách
+hàng/Chờ bên liên quan/Chờ hồ sơ tài liệu/Chờ phản hồi/Chờ thanh toán/Chờ
+phê duyệt/Khác) qua widget `WaitingReasonChips`, không phải một enum —
+giá trị cũ (đã lưu trước khi có preset) vẫn tương thích bình thường.
+
 ## TimelineEvent — Lịch sử sự kiện của hồ sơ
 
 | Field | Kiểu | Ghi chú |
@@ -151,10 +157,16 @@ dưới dạng số độc lập.
 | createdAt | DateTime | |
 
 Timeline được các thao tác ghi dữ liệu khác (tạo hồ sơ, đổi trạng thái,
-hoàn thành bước, tạo/hoàn thành task, thêm giao dịch...) tự động ghi thêm
-sự kiện tương ứng qua helper `_logEvent()` nội bộ trong từng
-`AppRepository` implementation — UI không bao giờ tự tạo `TimelineEvent`
-trực tiếp, trừ ghi chú tự do qua `addTimelineNote()`.
+hoàn thành bước, tạo/hoàn thành task, thêm giao dịch, đổi hạn hoàn
+thành...) tự động ghi thêm sự kiện tương ứng qua helper `_logEvent()` nội
+bộ trong từng `AppRepository` implementation — UI không bao giờ tự tạo
+`TimelineEvent` trực tiếp, trừ ghi chú tự do qua `addTimelineNote()`.
+`updateProfile()` so sánh `deadline` cũ/mới; nếu khác nhau, ghi một sự
+kiện `profileUpdated` với nội dung "Đặt hạn hoàn thành: ...", "Đổi hạn
+hoàn thành: ... → ..." hoặc "Bỏ hạn hoàn thành" tùy trường hợp — không
+ghi gì nếu cập nhật hồ sơ mà deadline không đổi. Chỉ những sự kiện có ý
+nghĩa nghiệp vụ mới được ghi (không có sự kiện kỹ thuật kiểu "đồng bộ
+dữ liệu", "provider refresh"...).
 
 ## ProfileAggregate — View model tổng hợp
 

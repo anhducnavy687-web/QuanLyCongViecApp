@@ -121,5 +121,41 @@ void main() {
       );
       expect(repo.aggregateOf(profileId).isWaiting, isFalse);
     });
+
+    test('đổi deadline ghi timeline profileUpdated, không đổi thì không ghi thêm', () async {
+      final repo = DemoRepository();
+      await repo.init();
+      final profileId = await _seedProfile(repo);
+      final profile = repo.profileById(profileId)!;
+      final countBefore = repo.timelineOf(profileId).length;
+
+      final newDeadline = DateTime.now().add(const Duration(days: 10));
+      await repo.updateProfile(profile.copyWith(deadline: newDeadline, hasDeadline: true));
+      final eventsAfterSet = repo.timelineOf(profileId);
+      expect(eventsAfterSet.length, countBefore + 1);
+      expect(
+        eventsAfterSet.any((e) => e.type == TimelineEventType.profileUpdated && e.message.contains('Đặt hạn hoàn thành')),
+        isTrue,
+      );
+
+      // Cập nhật hồ sơ mà KHÔNG đổi deadline — không được ghi thêm sự kiện.
+      final updated = repo.profileById(profileId)!;
+      await repo.updateProfile(updated.copyWith(note: 'Ghi chú mới'));
+      expect(repo.timelineOf(profileId).length, countBefore + 1);
+
+      // Đổi sang deadline khác — ghi thêm đúng 1 sự kiện "Đổi hạn hoàn thành".
+      final withDeadline = repo.profileById(profileId)!;
+      await repo.updateProfile(withDeadline.copyWith(deadline: newDeadline.add(const Duration(days: 5))));
+      final eventsAfterChange = repo.timelineOf(profileId);
+      expect(eventsAfterChange.length, countBefore + 2);
+      expect(eventsAfterChange.any((e) => e.message.contains('Đổi hạn hoàn thành')), isTrue);
+
+      // Bỏ deadline — ghi "Bỏ hạn hoàn thành".
+      final withDeadline2 = repo.profileById(profileId)!;
+      await repo.updateProfile(withDeadline2.copyWith(hasDeadline: false, clearDeadline: true));
+      final eventsAfterClear = repo.timelineOf(profileId);
+      expect(eventsAfterClear.length, countBefore + 3);
+      expect(eventsAfterClear.any((e) => e.message == 'Bỏ hạn hoàn thành'), isTrue);
+    });
   });
 }

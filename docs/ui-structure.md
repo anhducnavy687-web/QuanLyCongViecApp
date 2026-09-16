@@ -31,11 +31,14 @@ LoginScreen
 | Cài đặt | settings | `SettingsScreen` |
 
 Nút nổi **"+"** hiện ở tab Trang chủ và Nhóm, mở bottom sheet **Quick
-Action** với 4 lựa chọn: "Hồ sơ mới" (`AddEditProfileScreen`), "Việc cần
-làm mới", "Giao dịch mới", "Ghi chú mới" — 3 lựa chọn sau đều mở
-`ProfilePickerScreen` để chọn hồ sơ trước (nếu chưa có hồ sơ nào, hiện
-thông báo yêu cầu tạo hồ sơ trước), sau đó điều hướng tới màn hình tương
-ứng (`AddEditTaskScreen`, hoặc `ProfileDetailScreen` mở sẵn đúng tab).
+Action** với 5 lựa chọn: "Hồ sơ mới" (`AddEditProfileScreen`), "Việc cần
+làm mới", "Giao dịch mới", "Ghi chú mới", "Tài liệu mới" — 4 lựa chọn sau
+đều mở `ProfilePickerScreen` để chọn hồ sơ trước (nếu chưa có hồ sơ nào,
+hiện thông báo yêu cầu tạo hồ sơ trước), sau đó điều hướng tới màn hình
+tương ứng (`AddEditTaskScreen`, hoặc `ProfileDetailScreen` mở sẵn đúng
+tab — Tiền/Tổng quan/Tài liệu). Khi thao tác được bắt đầu từ ngay trong
+Profile Detail (nút "+" trong từng `SectionCard`), `profileId` đã có sẵn
+theo ngữ cảnh nên không cần chọn lại hồ sơ.
 
 `Cộng tác viên` là module riêng, truy cập từ Cài đặt →
 "Quản lý cộng tác viên" (`CollaboratorsScreen` → `CollaboratorDetailScreen`).
@@ -43,15 +46,23 @@ thông báo yêu cầu tạo hồ sơ trước), sau đó điều hướng tới
 ## Cây màn hình chi tiết
 
 ```
-DashboardScreen
+DashboardScreen — thứ tự ưu tiên: Quá hạn > Hôm nay > Đang chờ > Sắp tới > Không có hạn
  ├─ Header (lời chào theo giờ + thứ/ngày hiện tại)
- ├─ StatPill (Quá hạn / Hôm nay / Sắp đến hạn / Đang chờ / Không có hạn)
+ ├─ StatPill (Quá hạn / Hôm nay / Đang chờ / Sắp tới / Không có hạn)
  │   — mỗi StatPill chạm vào để drill-down sang SearchScreen với filter
  │   tương ứng đã chọn sẵn (initialFilter)
  ├─ "Việc hôm nay" — task có dueDate = hôm nay trên MỌI hồ sơ, sắp theo
  │   độ ưu tiên, có checkbox hoàn thành nhanh ngay tại Dashboard
+ ├─ "Việc quá hạn" — task đã quá hạn trên MỌI hồ sơ (tách riêng khỏi "Việc
+ │   hôm nay" để không gây nhầm lẫn), hiện kèm số ngày quá hạn
+ ├─ "Đang chờ" — gộp hồ sơ VÀ task đang ở trạng thái chờ, mỗi dòng hiện
+ │   "chờ [lý do] — N ngày" (+ ngày dự kiến phản hồi nếu có), tối đa 5 mục,
+ │   có nút "Xem tất cả"
+ ├─ "Sắp tới" — deadline gần nhất của hồ sơ, chia 2 nhóm hiển thị "1–3
+ │   ngày" / "4–7 ngày" (tối đa 3 mục/nhóm), có nút "Xem tất cả"
  ├─ Section theo DeadlineCategory (ưu tiên: quá hạn → hôm nay → sắp đến hạn
- │   → trì trệ/không deadline → bình thường) → ProfileCard[]
+ │   → trì trệ/không deadline → bình thường) → ProfileCard[] — danh sách
+ │   đầy đủ (không giới hạn số lượng), bổ sung cho các mục xem nhanh ở trên
  │   — chạm vào tiêu đề section cũng drill-down sang SearchScreen
  ├─ Section "Đã hoàn thành / Đã hủy" (thu gọn)
  └─ (AppBar action) → TasksScreen, SearchScreen
@@ -92,9 +103,11 @@ ProfilePickerScreen: tìm & chọn nhanh một hồ sơ, trả `profileId` qua
  task/giao dịch/ghi chú
 
 SearchScreen: ô tìm kiếm (tên/SĐT/đích công việc/mô tả/nhóm/trạng thái/
- tên và trạng thái việc cần làm) + chip lọc (Tất cả/Cần xử lý/Quá hạn/
- Hôm nay/Sắp đến hạn/Đang xử lý/Đang chờ/Không có deadline/Hoàn thành)
- → ProfileCard[] — cũng là đích drill-down từ Dashboard qua `initialFilter`
+ tên và trạng thái việc cần làm), KHÔNG phân biệt có dấu/không dấu tiếng
+ Việt (`VietnameseUtils.removeDiacritics`) + chip lọc (Tất cả/Cần xử lý/
+ Quá hạn/Hôm nay/Sắp đến hạn/Đang xử lý/Đang chờ/Không có deadline/Hoàn
+ thành) → ProfileCard[] — cũng là đích drill-down từ Dashboard qua
+ `initialFilter`
 
 SettingsScreen
  ├─ Tài khoản (thông tin phiên, đăng xuất/thoát demo)
@@ -116,6 +129,12 @@ SettingsScreen
   Profile 360°, cùng dựng trên `SectionCard`
 - `EmptyState`, `OfflineBanner`, `StatPill` — trạng thái & tiện ích chung
   (`StatPill` hỗ trợ `onTap` để drill-down từ Dashboard)
+- `ErrorState` / `ErrorBanner` — trạng thái lỗi dùng chung (thông báo ngắn
+  + nút "Thử lại"); `ErrorBanner` dùng ở `LoginScreen` khi tự động khôi
+  phục phiên Firebase thất bại
+- `WaitingReasonChips` — chip gợi ý nhanh lý do "Đang chờ"
+  (`AppConstants.waitingReasonPresets`), dùng trong cả form Hồ sơ lẫn
+  Task, chỉ hỗ trợ điền nhanh vào ô văn bản tự do bên dưới
 
 ## Nguyên tắc thiết kế đã áp dụng
 

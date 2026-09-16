@@ -36,9 +36,29 @@ String _headerDate(DateTime now) {
   return '$weekday, ${AppDateUtils.formatDate(now)}';
 }
 
+/// Việc/hồ sơ đang "Đang chờ" — gộp chung cả hồ sơ lẫn task đang chờ để
+/// hiển thị trên Dashboard theo đúng câu hỏi "chờ ai/cái gì, chờ bao lâu".
+class _WaitingPreviewItem {
+  final String title;
+  final String? profileName;
+  final String reason;
+  final int daysWaiting;
+  final DateTime? expectedResponseDate;
+  final VoidCallback onTap;
+
+  const _WaitingPreviewItem({
+    required this.title,
+    this.profileName,
+    required this.reason,
+    required this.daysWaiting,
+    this.expectedResponseDate,
+    required this.onTap,
+  });
+}
+
 /// Màn hình quan trọng nhất của ứng dụng: cho người dùng biết NGAY công
 /// việc nào cần xử lý trước, theo đúng thứ tự ưu tiên trong spec:
-/// Quá hạn > Hôm nay > Sắp đến hạn > Trì trệ/Không có deadline > Bình thường.
+/// Quá hạn > Hôm nay > Đang chờ > Sắp tới > Không có hạn.
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -73,6 +93,49 @@ class DashboardScreen extends StatelessWidget {
         .toList()
       ..sort((a, b) => b.priority.index.compareTo(a.priority.index));
 
+    final overdueTasks = repo.allOpenTasks
+        .where((t) => t.dueDate != null && AppDateUtils.isOverdue(t.dueDate!))
+        .toList()
+      ..sort((a, b) => b.dueDate!.compareTo(a.dueDate!));
+
+    // "Đang chờ": gộp hồ sơ đang chờ + task đang chờ, ưu tiên chờ lâu nhất.
+    final waitingItems = <_WaitingPreviewItem>[
+      for (final a in active.where((a) => a.isWaiting))
+        _WaitingPreviewItem(
+          title: a.profile.fullName,
+          reason: (a.profile.waitingReason?.isNotEmpty ?? false) ? a.profile.waitingReason! : 'Chưa rõ lý do',
+          daysWaiting: a.profile.waitingSince != null
+              ? AppDateUtils.daysSince(a.profile.waitingSince!, until: now)
+              : 0,
+          expectedResponseDate: a.profile.expectedResponseDate,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => ProfileDetailScreen(profileId: a.profile.id)),
+          ),
+        ),
+      for (final t in repo.allOpenTasks.where((t) => t.status == TaskStatus.waiting))
+        _WaitingPreviewItem(
+          title: t.title,
+          profileName: repo.profileById(t.profileId)?.fullName,
+          reason: (t.waitingReason?.isNotEmpty ?? false) ? t.waitingReason! : 'Chưa rõ lý do',
+          daysWaiting: t.waitingSince != null ? AppDateUtils.daysSince(t.waitingSince!, until: now) : 0,
+          expectedResponseDate: t.expectedResponseDate,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => ProfileDetailScreen(profileId: t.profileId, initialTabIndex: 2)),
+          ),
+        ),
+    ]..sort((a, b) => b.daysWaiting.compareTo(a.daysWaiting));
+
+    // "Sắp tới": chia 2 nhóm 1-3 ngày / 4-7 ngày, chỉ để xem lướt — bấm
+    // "Xem tất cả" để mở danh sách đầy đủ (SearchScreen với filter Sắp tới).
+    final upcomingNear = byCategory[DeadlineCategory.upcoming] ?? const <ProfileAggregate>[];
+    final upcomingFar = active.where((a) {
+      final deadline = a.profile.deadline;
+      if (!a.profile.hasDeadline || deadline == null) return false;
+      final d = AppDateUtils.daysUntil(deadline, from: now);
+      return d > 3 && d <= 7;
+    }).toList()
+      ..sort((a, b) => a.profile.deadline!.compareTo(b.profile.deadline!));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Trang chủ'),
@@ -86,6 +149,7 @@ class DashboardScreen extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.search_rounded),
+            tooltip: 'Tìm kiếm',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SearchScreen()),
             ),
@@ -130,19 +194,19 @@ class DashboardScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 10),
                             StatPill(
-                              label: 'Sắp đến hạn',
-                              value: '${byCategory[DeadlineCategory.upcoming]?.length ?? 0}',
-                              icon: Icons.schedule_rounded,
-                              color: AppColors.upcoming,
-                              onTap: () => _openFilter(context, ProfileFilter.upcoming),
-                            ),
-                            const SizedBox(width: 10),
-                            StatPill(
                               label: 'Đang chờ',
                               value: '$waitingCount',
                               icon: Icons.hourglass_top_rounded,
                               color: AppColors.waiting,
                               onTap: () => _openFilter(context, ProfileFilter.waiting),
+                            ),
+                            const SizedBox(width: 10),
+                            StatPill(
+                              label: 'Sắp tới',
+                              value: '${byCategory[DeadlineCategory.upcoming]?.length ?? 0}',
+                              icon: Icons.schedule_rounded,
+                              color: AppColors.upcoming,
+                              onTap: () => _openFilter(context, ProfileFilter.upcoming),
                             ),
                             const SizedBox(width: 10),
                             StatPill(
@@ -157,7 +221,39 @@ class DashboardScreen extends StatelessWidget {
                       ),
                       if (todayTasks.isNotEmpty) ...[
                         const SizedBox(height: 18),
-                        _TodayTasksSection(repo: repo, tasks: todayTasks),
+                        _TaskMiniListSection(
+                          icon: Icons.checklist_rounded,
+                          title: 'Việc hôm nay',
+                          repo: repo,
+                          tasks: todayTasks,
+                        ),
+                      ],
+                      if (overdueTasks.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        _TaskMiniListSection(
+                          icon: Icons.error_rounded,
+                          iconColor: AppColors.overdue,
+                          title: 'Việc quá hạn',
+                          repo: repo,
+                          tasks: overdueTasks,
+                          extraSubtitle: (t) =>
+                              'Quá hạn ${-AppDateUtils.daysUntil(t.dueDate!)} ngày',
+                        ),
+                      ],
+                      if (waitingItems.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        _WaitingPreviewSection(
+                          items: waitingItems.take(5).toList(),
+                          onViewAll: () => _openFilter(context, ProfileFilter.waiting),
+                        ),
+                      ],
+                      if (upcomingNear.isNotEmpty || upcomingFar.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        _UpcomingPreviewSection(
+                          near: upcomingNear.take(3).toList(),
+                          far: upcomingFar.take(3).toList(),
+                          onViewAll: () => _openFilter(context, ProfileFilter.upcoming),
+                        ),
                       ],
                       const SizedBox(height: 8),
                       _Section(
@@ -243,11 +339,26 @@ class _DashboardHeader extends StatelessWidget {
   }
 }
 
-class _TodayTasksSection extends StatelessWidget {
+/// Danh sách rút gọn các task (dùng chung cho "Việc hôm nay" và "Việc quá
+/// hạn") — mỗi dòng có checkbox hoàn thành nhanh, tên việc, tên hồ sơ, mức
+/// ưu tiên. [extraSubtitle] cho phép chèn thêm thông tin (VD: số ngày quá
+/// hạn) vào dòng phụ.
+class _TaskMiniListSection extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final String title;
   final AppRepository repo;
   final List<TaskItem> tasks;
+  final String Function(TaskItem task)? extraSubtitle;
 
-  const _TodayTasksSection({required this.repo, required this.tasks});
+  const _TaskMiniListSection({
+    required this.icon,
+    this.iconColor,
+    required this.title,
+    required this.repo,
+    required this.tasks,
+    this.extraSubtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -258,26 +369,31 @@ class _TodayTasksSection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Row(
             children: [
-              Icon(Icons.checklist_rounded, size: 18, color: context.colors.primary),
+              Icon(icon, size: 18, color: iconColor ?? context.colors.primary),
               const SizedBox(width: 8),
               Text(
-                'Việc hôm nay (${tasks.length})',
+                '$title (${tasks.length})',
                 style: context.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
               ),
             ],
           ),
         ),
-        ...tasks.map((t) => _TodayTaskTile(repo: repo, task: t)),
+        ...tasks.map((t) => _TaskMiniTile(
+              repo: repo,
+              task: t,
+              extraSubtitle: extraSubtitle?.call(t),
+            )),
       ],
     );
   }
 }
 
-class _TodayTaskTile extends StatelessWidget {
+class _TaskMiniTile extends StatelessWidget {
   final AppRepository repo;
   final TaskItem task;
+  final String? extraSubtitle;
 
-  const _TodayTaskTile({required this.repo, required this.task});
+  const _TaskMiniTile({required this.repo, required this.task, this.extraSubtitle});
 
   Color _priorityColor() {
     switch (task.priority) {
@@ -295,12 +411,16 @@ class _TodayTaskTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = repo.profileById(task.profileId);
+    final subtitleParts = [
+      if (profile != null) profile.fullName,
+      ?extraSubtitle,
+    ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Card(
         child: ListTile(
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => ProfileDetailScreen(profileId: task.profileId)),
+            MaterialPageRoute(builder: (_) => ProfileDetailScreen(profileId: task.profileId, initialTabIndex: 2)),
           ),
           leading: Checkbox(
             value: false,
@@ -308,7 +428,7 @@ class _TodayTaskTile extends StatelessWidget {
           ),
           title: Text(task.title, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(
-            profile?.fullName ?? '',
+            subtitleParts.join(' • '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -322,6 +442,134 @@ class _TodayTaskTile extends StatelessWidget {
               task.priority.label,
               style: TextStyle(fontSize: 11, color: _priorityColor(), fontWeight: FontWeight.w600),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Đang chờ": chờ ai/cái gì, chờ từ bao lâu, ngày dự kiến phản hồi nếu có.
+class _WaitingPreviewSection extends StatelessWidget {
+  final List<_WaitingPreviewItem> items;
+  final VoidCallback onViewAll;
+
+  const _WaitingPreviewSection({required this.items, required this.onViewAll});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Row(
+            children: [
+              Icon(Icons.hourglass_top_rounded, size: 18, color: AppColors.waiting),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Đang chờ (${items.length})',
+                  style: context.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              TextButton(onPressed: onViewAll, child: const Text('Xem tất cả')),
+            ],
+          ),
+        ),
+        ...items.map((item) => Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Card(
+                child: ListTile(
+                  onTap: item.onTap,
+                  leading: Icon(Icons.hourglass_top_rounded, color: AppColors.waiting),
+                  title: Text(
+                    item.profileName != null ? '${item.title} — ${item.profileName}' : item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${item.reason} — ${item.daysWaiting} ngày'
+                    '${item.expectedResponseDate != null ? ' • Dự kiến ${AppDateUtils.formatDate(item.expectedResponseDate)}' : ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            )),
+      ],
+    );
+  }
+}
+
+/// "Sắp tới": deadline gần nhất, chia 2 nhóm 1-3 ngày / 4-7 ngày để dễ quét.
+class _UpcomingPreviewSection extends StatelessWidget {
+  final List<ProfileAggregate> near;
+  final List<ProfileAggregate> far;
+  final VoidCallback onViewAll;
+
+  const _UpcomingPreviewSection({required this.near, required this.far, required this.onViewAll});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          child: Row(
+            children: [
+              Icon(Icons.schedule_rounded, size: 18, color: AppColors.upcoming),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Sắp tới',
+                  style: context.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              TextButton(onPressed: onViewAll, child: const Text('Xem tất cả')),
+            ],
+          ),
+        ),
+        if (near.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: Text('1–3 ngày', style: context.textTheme.labelMedium?.copyWith(color: context.colors.onSurfaceVariant)),
+          ),
+          ...near.map((a) => _UpcomingPreviewTile(aggregate: a)),
+        ],
+        if (far.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: Text('4–7 ngày', style: context.textTheme.labelMedium?.copyWith(color: context.colors.onSurfaceVariant)),
+          ),
+          ...far.map((a) => _UpcomingPreviewTile(aggregate: a)),
+        ],
+      ],
+    );
+  }
+}
+
+class _UpcomingPreviewTile extends StatelessWidget {
+  final ProfileAggregate aggregate;
+
+  const _UpcomingPreviewTile({required this.aggregate});
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = aggregate.profile;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Card(
+        child: ListTile(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => ProfileDetailScreen(profileId: profile.id)),
+          ),
+          title: Text(profile.fullName, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(profile.workTarget, maxLines: 1, overflow: TextOverflow.ellipsis),
+          trailing: Text(
+            AppDateUtils.describeDeadline(profile.deadline!),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.upcoming),
           ),
         ),
       ),

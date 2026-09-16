@@ -33,6 +33,7 @@ class CollaboratorDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Sửa cộng tác viên',
             onPressed: () => showModalBottomSheet(
               context: context,
               isScrollControlled: true,
@@ -121,9 +122,9 @@ class CollaboratorDetailScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label),
+          Expanded(child: Text(label, overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 8),
           Text(MoneyUtils.format(value), style: const TextStyle(fontWeight: FontWeight.w700)),
         ],
       ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/utils/app_date_utils.dart';
 import '../models/models.dart';
 import 'app_repository.dart';
 
@@ -387,6 +388,21 @@ class FirebaseRepository extends AppRepository {
             updated.id, TimelineEventType.waitingResolved, 'Kết thúc chờ');
       }
     }
+    if (old != null && old.deadline != updated.deadline) {
+      await _logEvent(updated.id, TimelineEventType.profileUpdated,
+          _describeDeadlineChange(old, updated));
+    }
+  }
+
+  /// Diễn giải thay đổi hạn hoàn thành để ghi vào Timeline — chỉ gọi khi
+  /// `old.deadline != updated.deadline`.
+  static String _describeDeadlineChange(Profile old, Profile updated) {
+    if (updated.deadline == null) return 'Bỏ hạn hoàn thành';
+    if (old.deadline == null) {
+      return 'Đặt hạn hoàn thành: ${AppDateUtils.formatDate(updated.deadline)}';
+    }
+    return 'Đổi hạn hoàn thành: ${AppDateUtils.formatDate(old.deadline)} → '
+        '${AppDateUtils.formatDate(updated.deadline)}';
   }
 
   @override

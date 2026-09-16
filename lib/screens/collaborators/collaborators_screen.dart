@@ -22,6 +22,7 @@ class CollaboratorsScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.add_rounded),
+            tooltip: 'Thêm cộng tác viên',
             onPressed: () => showModalBottomSheet(
               context: context,
               isScrollControlled: true,

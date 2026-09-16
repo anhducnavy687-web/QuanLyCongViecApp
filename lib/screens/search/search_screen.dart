@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/utils/vietnamese_utils.dart';
 import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/empty_state.dart';
@@ -94,18 +95,18 @@ class _SearchScreenState extends State<SearchScreen> {
 
   bool _matchesQuery(ProfileAggregate a) {
     if (_query.isEmpty) return true;
-    final q = _query.toLowerCase();
+    // Bỏ dấu cả hai phía để tìm kiếm không phân biệt có dấu/không dấu
+    // (VD: gõ "nguyen van a" vẫn khớp "Nguyễn Văn A").
+    final q = VietnameseUtils.removeDiacritics(_query);
     final p = a.profile;
-    return p.fullName.toLowerCase().contains(q) ||
-        p.phone.toLowerCase().contains(q) ||
-        p.workTarget.toLowerCase().contains(q) ||
-        p.description.toLowerCase().contains(q) ||
-        p.status.label.toLowerCase().contains(q) ||
-        (a.group?.name.toLowerCase().contains(q) ?? false) ||
-        a.tasks.any((t) =>
-            t.title.toLowerCase().contains(q) ||
-            t.description.toLowerCase().contains(q) ||
-            t.status.label.toLowerCase().contains(q));
+    bool has(String field) => VietnameseUtils.removeDiacritics(field).contains(q);
+    return has(p.fullName) ||
+        has(p.phone) ||
+        has(p.workTarget) ||
+        has(p.description) ||
+        has(p.status.label) ||
+        (a.group != null && has(a.group!.name)) ||
+        a.tasks.any((t) => has(t.title) || has(t.description) || has(t.status.label));
   }
 
   @override

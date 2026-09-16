@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/extensions/context_extensions.dart';
 import '../../navigation/app_session.dart';
+import '../../widgets/error_state.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,6 +29,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _enterDemo(AppSession session) async {
     setState(() => _busy = true);
     await session.enterDemoMode();
+    if (!mounted) return;
+    setState(() => _busy = false);
+  }
+
+  Future<void> _retryBootstrap(AppSession session) async {
+    setState(() => _busy = true);
+    await session.bootstrap();
     if (!mounted) return;
     setState(() => _busy = false);
   }
@@ -67,6 +75,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 textAlign: TextAlign.center,
                 style: context.textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
               ),
+              if (session.lastError != null) ...[
+                const SizedBox(height: 24),
+                ErrorBanner(
+                  message: session.lastError!,
+                  onRetry: _busy ? null : () => _retryBootstrap(session),
+                ),
+              ],
               const SizedBox(height: 40),
               FilledButton.icon(
                 onPressed: _busy ? null : () => _signIn(session),

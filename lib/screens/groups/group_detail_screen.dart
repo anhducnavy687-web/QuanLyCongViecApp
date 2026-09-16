@@ -31,6 +31,7 @@ class GroupDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Sửa nhóm',
             onPressed: () => showModalBottomSheet(
               context: context,
               isScrollControlled: true,
@@ -39,6 +40,7 @@ class GroupDetailScreen extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded),
+            tooltip: 'Xóa nhóm',
             onPressed: () => _confirmDelete(context, repo, group),
           ),
         ],

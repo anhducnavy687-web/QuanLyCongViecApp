@@ -36,6 +36,7 @@ class MilestoneSection extends StatelessWidget {
       title: 'Mốc thời gian',
       trailing: IconButton(
         icon: const Icon(Icons.add_rounded),
+        tooltip: 'Thêm mốc thời gian',
         onPressed: () => _showEditDialog(context, repo, null),
       ),
       child: milestones.isEmpty

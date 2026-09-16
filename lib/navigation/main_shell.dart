@@ -60,6 +60,7 @@ class _MainShellState extends State<MainShell> {
       floatingActionButton: _index == 0 || _index == 1
           ? FloatingActionButton(
               onPressed: () => _showQuickActions(context),
+              tooltip: 'Tạo mới',
               child: const Icon(Icons.add),
             )
           : null,
@@ -112,6 +113,11 @@ class _MainShellState extends State<MainShell> {
               title: const Text('Ghi chú mới'),
               onTap: () => Navigator.pop(ctx, 'note'),
             ),
+            ListTile(
+              leading: const Icon(Icons.attach_file_rounded),
+              title: const Text('Tài liệu mới'),
+              onTap: () => Navigator.pop(ctx, 'document'),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -119,65 +125,52 @@ class _MainShellState extends State<MainShell> {
     );
     if (action == null || !context.mounted) return;
 
+    if (action == 'profile') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AddEditProfileScreen()),
+      );
+      return;
+    }
+
+    // 'task'/'transaction'/'note'/'document' đều cần biết hồ sơ trước —
+    // chọn hồ sơ qua ProfilePickerScreen rồi điều hướng tới đúng nơi.
+    final repo = context.read<AppRepository>();
+    if (repo.profiles.isEmpty) {
+      _showNeedProfileMessage(context);
+      return;
+    }
+    final profileId = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const ProfilePickerScreen()),
+    );
+    if (profileId == null || !context.mounted) return;
+
     switch (action) {
-      case 'profile':
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AddEditProfileScreen()),
-        );
-        break;
       case 'task':
-        final repo = context.read<AppRepository>();
-        if (repo.profiles.isEmpty) {
-          _showNeedProfileMessage(context);
-          return;
-        }
-        final profileId = await Navigator.of(context).push<String>(
-          MaterialPageRoute(builder: (_) => const ProfilePickerScreen()),
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => AddEditTaskScreen(profileId: profileId)),
         );
-        if (profileId != null && context.mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => AddEditTaskScreen(profileId: profileId)),
-          );
-        }
         break;
       case 'transaction':
-        {
-          final repo = context.read<AppRepository>();
-          if (repo.profiles.isEmpty) {
-            _showNeedProfileMessage(context);
-            return;
-          }
-          final profileId = await Navigator.of(context).push<String>(
-            MaterialPageRoute(builder: (_) => const ProfilePickerScreen()),
-          );
-          if (profileId != null && context.mounted) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ProfileDetailScreen(profileId: profileId, initialTabIndex: 4),
-              ),
-            );
-          }
-          break;
-        }
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProfileDetailScreen(profileId: profileId, initialTabIndex: 4),
+          ),
+        );
+        break;
       case 'note':
-        {
-          final repo = context.read<AppRepository>();
-          if (repo.profiles.isEmpty) {
-            _showNeedProfileMessage(context);
-            return;
-          }
-          final profileId = await Navigator.of(context).push<String>(
-            MaterialPageRoute(builder: (_) => const ProfilePickerScreen()),
-          );
-          if (profileId != null && context.mounted) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ProfileDetailScreen(profileId: profileId, initialTabIndex: 0),
-              ),
-            );
-          }
-          break;
-        }
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProfileDetailScreen(profileId: profileId, initialTabIndex: 0),
+          ),
+        );
+        break;
+      case 'document':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProfileDetailScreen(profileId: profileId, initialTabIndex: 6),
+          ),
+        );
+        break;
     }
   }
 

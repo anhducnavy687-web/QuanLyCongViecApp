@@ -5,6 +5,7 @@
 // được đặt trong MaterialApp.builder (nằm trên Navigator), không phải bên
 // trong nội dung của một route cụ thể.
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -36,6 +37,21 @@ Future<AppSession> _bootDemoApp(WidgetTester tester) async {
   return session;
 }
 
+/// Dashboard hiện có nhiều mục xem nhanh (StatPill, Việc hôm nay, Việc quá
+/// hạn, Đang chờ, Sắp tới...) phía trên danh sách hồ sơ đầy đủ, nên nội
+/// dung mong muốn không còn chắc chắn nằm trong viewport ban đầu của bài
+/// test — cuộn tới khi thấy trước khi tìm/chạm, phản ánh đúng trải nghiệm
+/// cuộn tự nhiên trên điện thoại.
+Future<void> _scrollDashboardUntilVisible(WidgetTester tester, Finder finder) async {
+  await tester.dragUntilVisible(
+    finder,
+    find.byType(Scrollable).first,
+    const Offset(0, -300),
+    maxIteration: 30,
+  );
+  await tester.pump();
+}
+
 void main() {
   testWidgets('Demo Mode boots and shows Dashboard with seeded data', (tester) async {
     await _bootDemoApp(tester);
@@ -47,19 +63,23 @@ void main() {
     // của Dashboard theo đúng thứ tự ưu tiên, chắc chắn nằm trong viewport
     // ban đầu của bài test.
     expect(find.text('Quá hạn'), findsWidgets);
-    expect(find.textContaining('Làm căn cước công dân gắn chip'), findsWidgets);
+    final overdueText = find.textContaining('Làm căn cước công dân gắn chip');
+    await _scrollDashboardUntilVisible(tester, overdueText);
+    expect(overdueText, findsWidgets);
   });
 
   testWidgets('Mở được ProfileDetailScreen từ Dashboard mà không lỗi Provider', (tester) async {
     await _bootDemoApp(tester);
 
-    expect(find.byType(ProfileCard), findsWidgets);
-    // Dashboard giờ có thêm header/StatPill/"Việc hôm nay" phía trên các
-    // ProfileCard, nên card đầu tiên không còn chắc chắn nằm trong viewport
-    // ban đầu — cuộn tới trước khi chạm để tránh tap trượt ra ngoài card.
-    await tester.ensureVisible(find.byType(ProfileCard).first);
-    await tester.pump();
-    await tester.tap(find.byType(ProfileCard).first);
+    // Cuộn tới một hồ sơ cụ thể (khớp đúng 1 kết quả) rồi chạm vào
+    // ProfileCard chứa nó — tránh dùng find.byType(ProfileCard) làm đích
+    // cuộn vì một khi nhiều card cùng lọt vào khung nhìn, WidgetController
+    // không còn xác định được phần tử duy nhất để kiểm tra tiếp.
+    final overdueText = find.textContaining('Làm căn cước công dân gắn chip');
+    await _scrollDashboardUntilVisible(tester, overdueText);
+    final overdueCard = find.ancestor(of: overdueText, matching: find.byType(ProfileCard));
+    expect(overdueCard, findsOneWidget);
+    await tester.tap(overdueCard);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 

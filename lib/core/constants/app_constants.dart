@@ -37,6 +37,24 @@ class AppConstants {
     'webp',
   ];
 
+  /// Lý do "Đang chờ" thường gặp — hiển thị dưới dạng chip chọn nhanh trong
+  /// form hồ sơ/việc cần làm. Chọn "Khác" thì người dùng tự gõ lý do; đây chỉ
+  /// là gợi ý điền nhanh, KHÔNG phải enum — field `waitingReason` vẫn là
+  /// String tự do để không phá dữ liệu cũ.
+  static const List<String> waitingReasonPresets = <String>[
+    'Chờ khách hàng',
+    'Chờ bên liên quan',
+    'Chờ hồ sơ/tài liệu',
+    'Chờ phản hồi',
+    'Chờ thanh toán',
+    'Chờ phê duyệt',
+    'Khác',
+  ];
+
+  /// Ngưỡng ngày để chia nhóm hiển thị "Sắp tới" trên Dashboard.
+  static const int upcomingNearBucketDays = 3;
+  static const int upcomingFarBucketDays = 7;
+
   static const String prefsKeyThemeMode = 'settings.themeMode';
   static const String prefsKeyDemoMode = 'settings.demoMode';
   static const String prefsKeySessionUid = 'settings.sessionUid';

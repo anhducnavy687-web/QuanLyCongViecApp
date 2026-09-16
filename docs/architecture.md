@@ -185,3 +185,29 @@ tạp hơn (Bloc/Riverpod) vì:
   với `ChangeNotifier`.
 - Dễ thay thế sau này nếu cần, vì toàn bộ business logic nằm trong
   `models/` và `repositories/`, không nằm trong widget.
+
+## Tìm kiếm không dấu (Phase 1.1)
+
+`core/utils/vietnamese_utils.dart` cung cấp `VietnameseUtils.removeDiacritics()`
+— bảng tra cứu ký tự có dấu → không dấu (đơn giản, không phụ thuộc thư
+viện ngoài). `SearchScreen._matchesQuery` bỏ dấu CẢ hai phía (dữ liệu và
+từ khóa tìm kiếm) trước khi so sánh `contains`, nên gõ "nguyen van a" vẫn
+khớp "Nguyễn Văn A" mà không cần thay đổi cách lưu trữ dữ liệu (vẫn giữ
+nguyên dấu để hiển thị).
+
+## Kiểm tra responsive bằng widget test (Phase 1.1)
+
+Không có trình duyệt/thiết bị để chụp ảnh màn hình trực quan trong môi
+trường CI/sandbox, nên `test/responsive_test.dart` dùng
+`tester.view.physicalSize` + `devicePixelRatio = 1.0` để giả lập 4 kích
+thước bắt buộc (360×800, 390×844, 412×915, 430×932), sau đó duyệt qua các
+màn hình chính (Dashboard, Nhóm, Lịch, Thống kê, Cài đặt, Hồ sơ 360° đủ 7
+tab, AddEditTaskScreen) và khẳng định không có `FlutterError` (bao gồm
+`RenderFlex overflow`) phát sinh trong quá trình dựng UI ở từng kích
+thước. Cách này phát hiện được overflow thật (không phải giả lập) —
+chính test này đã lộ ra và dẫn tới việc sửa các `Row` tính tổng tiền dùng
+`MainAxisAlignment.spaceBetween` không có `Expanded` (dễ tràn khi nhãn dài
+gặp màn hình hẹp) tại `statistics_screen.dart`, `money_section.dart`,
+`collaborator_detail_screen.dart`, và một `Row` badge/ưu tiên/hạn trong
+`task_list_section.dart` (đã đổi sang `Wrap` để tự xuống dòng thay vì
+tràn).
