@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/responsive/responsive.dart';
 import '../../core/utils/vietnamese_utils.dart';
 import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
@@ -99,21 +100,31 @@ class _SearchScreenState extends State<SearchScreen> {
     // (VD: gõ "nguyen van a" vẫn khớp "Nguyễn Văn A").
     final q = VietnameseUtils.removeDiacritics(_query);
     final p = a.profile;
-    bool has(String field) => VietnameseUtils.removeDiacritics(field).contains(q);
+    bool has(String field) =>
+        VietnameseUtils.removeDiacritics(field).contains(q);
     return has(p.fullName) ||
         has(p.phone) ||
         has(p.workTarget) ||
         has(p.description) ||
         has(p.status.label) ||
         (a.group != null && has(a.group!.name)) ||
-        a.tasks.any((t) => has(t.title) || has(t.description) || has(t.status.label));
+        a.tasks.any(
+          (t) => has(t.title) || has(t.description) || has(t.status.label),
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<AppRepository>();
-    final results = repo.allAggregates.where((a) => _matchesQuery(a) && _matchesFilter(a)).toList()
-      ..sort((a, b) => a.deadlineCategory.priority.compareTo(b.deadlineCategory.priority));
+    final results =
+        repo.allAggregates
+            .where((a) => _matchesQuery(a) && _matchesFilter(a))
+            .toList()
+          ..sort(
+            (a, b) => a.deadlineCategory.priority.compareTo(
+              b.deadlineCategory.priority,
+            ),
+          );
 
     return Scaffold(
       appBar: AppBar(
@@ -127,40 +138,51 @@ class _SearchScreenState extends State<SearchScreen> {
           onChanged: (v) => setState(() => _query = v),
         ),
       ),
-      body: Column(
-        children: [
-          SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              children: [
-                for (final f in ProfileFilter.values)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ChoiceChip(
-                      label: Text(f.label),
-                      selected: _filter == f,
-                      onSelected: (_) => setState(() => _filter = f),
+      body: ResponsivePage(
+        child: Column(
+          children: [
+            SizedBox(
+              height: 48,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                children: [
+                  for (final f in ProfileFilter.values)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ChoiceChip(
+                        label: Text(f.label),
+                        selected: _filter == f,
+                        onSelected: (_) => setState(() => _filter = f),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: results.isEmpty
-                ? const EmptyState(icon: Icons.search_off_rounded, title: 'Không tìm thấy hồ sơ phù hợp')
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-                    itemCount: results.length,
-                    itemBuilder: (context, i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: ProfileCard(aggregate: results[i], showGroupLabel: true),
+            const Divider(height: 1),
+            Expanded(
+              child: results.isEmpty
+                  ? const EmptyState(
+                      icon: Icons.search_off_rounded,
+                      title: 'Không tìm thấy hồ sơ phù hợp',
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+                      itemCount: results.length,
+                      itemBuilder: (context, i) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: ProfileCard(
+                          aggregate: results[i],
+                          showGroupLabel: true,
+                        ),
+                      ),
                     ),
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../core/extensions/datetime_extensions.dart';
+import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_date_utils.dart';
 import '../../models/models.dart';
@@ -47,7 +48,8 @@ class _TasksScreenState extends State<TasksScreen> {
   bool _matches(TaskItem t) {
     switch (_filter) {
       case _TaskFilter.all:
-        return t.status != TaskStatus.completed && t.status != TaskStatus.cancelled;
+        return t.status != TaskStatus.completed &&
+            t.status != TaskStatus.cancelled;
       case _TaskFilter.overdue:
         return t.status != TaskStatus.completed &&
             t.status != TaskStatus.cancelled &&
@@ -83,37 +85,46 @@ class _TasksScreenState extends State<TasksScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Việc cần làm')),
-      body: Column(
-        children: [
-          SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              children: [
-                for (final f in _TaskFilter.values)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ChoiceChip(
-                      label: Text(f.label),
-                      selected: _filter == f,
-                      onSelected: (_) => setState(() => _filter = f),
+      body: ResponsivePage(
+        child: Column(
+          children: [
+            SizedBox(
+              height: 48,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                children: [
+                  for (final f in _TaskFilter.values)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ChoiceChip(
+                        label: Text(f.label),
+                        selected: _filter == f,
+                        onSelected: (_) => setState(() => _filter = f),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: tasks.isEmpty
-                ? const EmptyState(icon: Icons.checklist_rounded, title: 'Không có việc nào phù hợp')
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-                    itemCount: tasks.length,
-                    itemBuilder: (context, i) => _TaskRow(task: tasks[i], repo: repo),
-                  ),
-          ),
-        ],
+            const Divider(height: 1),
+            Expanded(
+              child: tasks.isEmpty
+                  ? const EmptyState(
+                      icon: Icons.checklist_rounded,
+                      title: 'Không có việc nào phù hợp',
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+                      itemCount: tasks.length,
+                      itemBuilder: (context, i) =>
+                          _TaskRow(task: tasks[i], repo: repo),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -128,7 +139,8 @@ class _TaskRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = repo.profileById(task.profileId);
-    final overdue = task.status != TaskStatus.completed &&
+    final overdue =
+        task.status != TaskStatus.completed &&
         task.status != TaskStatus.cancelled &&
         task.dueDate != null &&
         AppDateUtils.isOverdue(task.dueDate!);
@@ -137,7 +149,9 @@ class _TaskRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ProfileDetailScreen(profileId: task.profileId)),
+          MaterialPageRoute(
+            builder: (_) => ProfileDetailScreen(profileId: task.profileId),
+          ),
         ),
         leading: Checkbox(
           value: task.status == TaskStatus.completed,
@@ -166,7 +180,9 @@ class _TaskRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: overdue ? FontWeight.bold : null,
-                  color: overdue ? AppColors.overdue : context.colors.onSurfaceVariant,
+                  color: overdue
+                      ? AppColors.overdue
+                      : context.colors.onSurfaceVariant,
                 ),
               ),
       ),

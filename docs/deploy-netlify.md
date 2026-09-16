@@ -1,11 +1,16 @@
-# Deploy Web Mobile Preview lên Netlify
+# Deploy bản Web production lên Netlify
 
-Mục tiêu: có một URL dạng `https://<tên-site>.netlify.app` để mở Web
-Mobile Preview trên bất kỳ Chrome nào (laptop/điện thoại) — **không cần
-cài Flutter, Git hay tải source code** trên thiết bị dùng để xem.
+Mục tiêu: có một URL dạng `https://<tên-site>.netlify.app` để mở **toàn bộ
+ứng dụng** (không phải bản xem trước) trên bất kỳ trình duyệt nào
+(điện thoại, máy tính bảng, laptop) — **không cần cài Flutter, Git hay
+tải source code** trên thiết bị dùng để xem.
 
-> Đây chỉ là bản Preview để xem/thử giao diện mobile — Android/iOS vẫn là
-> nền tảng chính của ứng dụng (xem [README.md](../README.md) mục 3).
+> Từ Phase 1.2, Netlify là **nền tảng triển khai production chính thức**
+> của ứng dụng: `GitHub → Netlify build (Flutter Web) → HTTPS URL →
+> Trình duyệt → Firebase (Auth + Firestore)`. Android/iOS vẫn được hỗ trợ
+> build (xem [README.md](../README.md) mục 5–7) nhưng không còn là kênh
+> phân phối bắt buộc duy nhất — người dùng có thể dùng đầy đủ tính năng
+> chỉ qua URL, không cần cài app.
 
 ## Vì sao không deploy trực tiếp từ Claude Code
 
@@ -16,8 +21,8 @@ hay thiếu token, mà do egress proxy từ chối kết nối. Vì vậy việc
 cần thực hiện qua giao diện web Netlify.
 
 Repo đã có sẵn [`netlify.toml`](../netlify.toml) ở thư mục gốc, tự cấu
-hình để **máy build của Netlify tự tải Flutter SDK và build Web Preview**
-— bạn không cần cài gì cả, chỉ cần kết nối repo với Netlify.
+hình để **máy build của Netlify tự tải Flutter SDK và build bản Web
+production** — bạn không cần cài gì cả, chỉ cần kết nối repo với Netlify.
 
 ## Cách 1 — Kết nối Git với Netlify (khuyến nghị, ~2 phút, không cần CLI)
 
@@ -67,13 +72,32 @@ link tới site Netlify đã tạo ở Cách 1 (hoặc tạo site mới ngay tro
 ## Sau khi deploy
 
 - **URL public**: trang **Site overview** trên Netlify hiển thị URL
-  `https://<tên-site>.netlify.app` — đây là link để mở trên Chrome bất kỳ
-  thiết bị nào, không cần cài gì thêm.
+  `https://<tên-site>.netlify.app` — đây là link chính thức để mở app trên
+  điện thoại/máy tính bảng/máy tính bất kỳ, không cần cài gì thêm.
 - **URL quản lý**: `https://app.netlify.com/sites/<tên-site>/overview` —
   nơi xem lịch sử deploy, log build, đổi tên site, cấu hình domain riêng.
-- **Xem lại giao diện**: mở URL public bằng Chrome, chọn **"Dùng thử ở
-  Chế độ Demo"** — không cần đăng nhập Google hay cấu hình Firebase, dữ
-  liệu mẫu đã có sẵn (xem README mục 2).
+- **Xem lại giao diện**: mở URL public, chọn **"Dùng thử ở Chế độ Demo"**
+  — không cần đăng nhập Google hay cấu hình Firebase, dữ liệu mẫu đã có
+  sẵn (xem README mục 2). Giao diện tự thích ứng theo kích thước màn hình
+  thiết bị đang mở (điện thoại/tablet/desktop).
+
+## Bật đăng nhập Google thật trên domain Netlify (nếu dùng Firebase Mode)
+
+Nếu đã cấu hình Firebase (xem
+[docs/firebase-setup.md](firebase-setup.md)) và muốn đăng nhập Google hoạt
+động trên URL Netlify (không chỉ Demo Mode):
+
+1. Vào **Firebase Console → Authentication → Settings → Authorized
+   domains**.
+2. Thêm chính xác tên miền Netlify của bạn (VD
+   `quanlycongviecapp.netlify.app`) — không kèm `https://` hay dấu `/`
+   cuối.
+3. Nếu dùng domain riêng (custom domain) trỏ về Netlify, thêm cả domain đó
+   vào danh sách này.
+
+Thiếu bước này, đăng nhập Google trên domain Netlify sẽ báo lỗi
+`auth/unauthorized-domain` — Demo Mode không bị ảnh hưởng (không cần bước
+này).
 
 ## Nếu build trên Netlify thất bại
 

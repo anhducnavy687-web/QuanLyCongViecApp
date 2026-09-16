@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -30,7 +30,9 @@ class QlcvApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider<AppSession>.value(value: session),
         ChangeNotifierProvider<ThemeController>.value(value: themeController),
-        ChangeNotifierProvider<ConnectivityService>.value(value: connectivityService),
+        ChangeNotifierProvider<ConnectivityService>.value(
+          value: connectivityService,
+        ),
       ],
       child: Consumer<ThemeController>(
         builder: (context, theme, _) {
@@ -59,9 +61,21 @@ class QlcvApp extends StatelessWidget {
             // như thế này đảm bảo MỌI route (kể cả các route được push)
             // đều đọc được AppRepository, trên cả Android/iOS lẫn Web.
             //
-            // Trên Web, sau đó còn bọc thêm MobilePreviewFrame — chỉ là
-            // một container hiển thị, không có màn hình/logic riêng cho
-            // web.
+            // Trên Web, khi CHẠY Ở CHẾ ĐỘ DEBUG (flutter run -d chrome) —
+            // KHÔNG PHẢI bản release — còn bọc thêm MobilePreviewFrame để
+            // dev xem nhanh giao diện mobile trên Chrome mà không cần máy
+            // thật. Đây chỉ là một container hiển thị cho mục đích phát
+            // triển, không có màn hình/logic riêng cho web.
+            //
+            // QUAN TRỌNG: `flutter build web --release` (lệnh Netlify dùng
+            // để deploy production, xem netlify.toml) có kReleaseMode ==
+            // true nên KHÔNG BAO GIỜ bọc khung điện thoại — người dùng mở
+            // URL production sẽ thấy app chiếm toàn bộ viewport của trình
+            // duyệt như một Responsive Web App thật sự, không phải bản xem
+            // trước bị ép vào khung điện thoại. Việc gate này dùng cờ biên
+            // dịch `kReleaseMode` của chính Flutter thay vì so khớp domain,
+            // nên hoạt động đúng trên MỌI nơi deploy (Netlify hay khác)
+            // mà không cần hardcode tên miền.
             builder: (context, child) {
               final repo = context.watch<AppSession>().repository;
               Widget content = repo == null
@@ -70,7 +84,7 @@ class QlcvApp extends StatelessWidget {
                       value: repo,
                       child: child!,
                     );
-              if (kIsWeb) {
+              if (kIsWeb && !kReleaseMode) {
                 content = MobilePreviewFrame(child: content);
               }
               return content;

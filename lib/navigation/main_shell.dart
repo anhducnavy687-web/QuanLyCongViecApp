@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/responsive/responsive.dart';
 import '../repositories/app_repository.dart';
 import '../screens/calendar/calendar_screen.dart';
 import '../screens/groups/groups_screen.dart';
@@ -13,8 +14,15 @@ import '../screens/statistics/statistics_screen.dart';
 import '../screens/tasks/add_edit_task_screen.dart';
 import 'app_session.dart';
 
-/// Khung điều hướng chính: 5 tab (Trang chủ, Nhóm, Lịch, Thống kê, Cài đặt)
-/// + nút nổi "+ Thêm hồ sơ".
+/// Khung điều hướng chính: 5 mục (Trang chủ, Nhóm, Lịch, Thống kê, Cài đặt)
+/// + nút nổi Quick Action.
+///
+/// Điều hướng thích ứng theo chiều rộng màn hình (dùng chung state `_index`
+/// và `_screens`, KHÔNG nhân bản business logic):
+/// - Compact (điện thoại): `NavigationBar` cố định dưới cùng, như trước.
+/// - Medium (tablet): `NavigationRail` bên trái, chỉ hiện icon.
+/// - Expanded (desktop/laptop): `NavigationRail` mở rộng (icon + nhãn),
+///   tận dụng chiều rộng màn hình thay vì kéo giãn giao diện điện thoại.
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -28,7 +36,11 @@ class _MainShellState extends State<MainShell> {
   static const _tabs = [
     _TabInfo('Trang chủ', Icons.dashboard_outlined, Icons.dashboard_rounded),
     _TabInfo('Nhóm', Icons.folder_outlined, Icons.folder_rounded),
-    _TabInfo('Lịch', Icons.calendar_month_outlined, Icons.calendar_month_rounded),
+    _TabInfo(
+      'Lịch',
+      Icons.calendar_month_outlined,
+      Icons.calendar_month_rounded,
+    ),
     _TabInfo('Thống kê', Icons.bar_chart_outlined, Icons.bar_chart_rounded),
     _TabInfo('Cài đặt', Icons.settings_outlined, Icons.settings_rounded),
   ];
@@ -52,28 +64,63 @@ class _MainShellState extends State<MainShell> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    final body = IndexedStack(index: _index, children: _screens);
+    final fab = _index == 0 || _index == 1
+        ? FloatingActionButton(
+            onPressed: () => _showQuickActions(context),
+            tooltip: 'Tạo mới',
+            child: const Icon(Icons.add),
+          )
+        : null;
+
+    if (context.isCompact) {
+      return Scaffold(
+        body: body,
+        floatingActionButton: fab,
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          destinations: [
+            for (final tab in _tabs)
+              NavigationDestination(
+                icon: Icon(tab.icon),
+                selectedIcon: Icon(tab.selectedIcon),
+                label: tab.label,
+              ),
+          ],
+        ),
+      );
+    }
+
+    // Tablet/desktop: NavigationRail bên trái thay cho thanh điều hướng
+    // dưới cùng — tận dụng chiều rộng màn hình. `extended` chỉ bật ở
+    // expanded (đủ chỗ hiển thị nhãn bên cạnh icon như một sidebar thật
+    // sự); ở medium (tablet) chỉ hiện icon để không chiếm quá nhiều bề
+    // ngang trên cửa sổ vừa.
+    final extended = context.isExpanded;
     return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: _screens,
-      ),
-      floatingActionButton: _index == 0 || _index == 1
-          ? FloatingActionButton(
-              onPressed: () => _showQuickActions(context),
-              tooltip: 'Tạo mới',
-              child: const Icon(Icons.add),
-            )
-          : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: [
-          for (final tab in _tabs)
-            NavigationDestination(
-              icon: Icon(tab.icon),
-              selectedIcon: Icon(tab.selectedIcon),
-              label: tab.label,
-            ),
+      body: Row(
+        children: [
+          NavigationRail(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            labelType: extended
+                ? NavigationRailLabelType.none
+                : NavigationRailLabelType.all,
+            extended: extended,
+            minExtendedWidth: 200,
+            leading: fab,
+            destinations: [
+              for (final tab in _tabs)
+                NavigationRailDestination(
+                  icon: Icon(tab.icon),
+                  selectedIcon: Icon(tab.selectedIcon),
+                  label: Text(tab.label),
+                ),
+            ],
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(child: body),
         ],
       ),
     );
@@ -90,7 +137,10 @@ class _MainShellState extends State<MainShell> {
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Tạo mới', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(
+                  'Tạo mới',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
             ListTile(
@@ -126,9 +176,9 @@ class _MainShellState extends State<MainShell> {
     if (action == null || !context.mounted) return;
 
     if (action == 'profile') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const AddEditProfileScreen()),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const AddEditProfileScreen()));
       return;
     }
 
@@ -147,27 +197,32 @@ class _MainShellState extends State<MainShell> {
     switch (action) {
       case 'task':
         Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => AddEditTaskScreen(profileId: profileId)),
+          MaterialPageRoute(
+            builder: (_) => AddEditTaskScreen(profileId: profileId),
+          ),
         );
         break;
       case 'transaction':
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ProfileDetailScreen(profileId: profileId, initialTabIndex: 4),
+            builder: (_) =>
+                ProfileDetailScreen(profileId: profileId, initialTabIndex: 4),
           ),
         );
         break;
       case 'note':
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ProfileDetailScreen(profileId: profileId, initialTabIndex: 0),
+            builder: (_) =>
+                ProfileDetailScreen(profileId: profileId, initialTabIndex: 0),
           ),
         );
         break;
       case 'document':
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ProfileDetailScreen(profileId: profileId, initialTabIndex: 6),
+            builder: (_) =>
+                ProfileDetailScreen(profileId: profileId, initialTabIndex: 6),
           ),
         );
         break;

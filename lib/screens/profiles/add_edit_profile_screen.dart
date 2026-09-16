@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../core/extensions/datetime_extensions.dart';
+import '../../core/responsive/responsive.dart';
 import '../../core/utils/validators.dart';
 import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
@@ -50,7 +51,11 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     _phoneCtrl = TextEditingController(text: p?.phone ?? '');
     _workTargetCtrl = TextEditingController(text: p?.workTarget ?? '');
     _descCtrl = TextEditingController(text: p?.description ?? '');
-    _amountCtrl = TextEditingController(text: p != null && p.totalAmount > 0 ? p.totalAmount.toStringAsFixed(0) : '');
+    _amountCtrl = TextEditingController(
+      text: p != null && p.totalAmount > 0
+          ? p.totalAmount.toStringAsFixed(0)
+          : '',
+    );
     _noteCtrl = TextEditingController(text: p?.note ?? '');
     _waitingReasonCtrl = TextEditingController(text: p?.waitingReason ?? '');
     _groupId = p?.groupId ?? widget.initialGroupId;
@@ -94,7 +99,10 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     if (picked != null) setState(() => _deadline = picked);
   }
 
-  Future<void> _pickDate(DateTime? initial, ValueChanged<DateTime> onPicked) async {
+  Future<void> _pickDate(
+    DateTime? initial,
+    ValueChanged<DateTime> onPicked,
+  ) async {
     final picked = await showDatePicker(
       context: context,
       initialDate: initial ?? DateTime.now(),
@@ -121,7 +129,11 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
 
     setState(() => _saving = true);
     final repo = context.read<AppRepository>();
-    final amount = num.tryParse(_amountCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+    final amount =
+        num.tryParse(
+          _amountCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+        ) ??
+        0;
     final now = DateTime.now();
     final isWaiting = _status == ProfileStatus.waiting;
     if (isWaiting) {
@@ -129,48 +141,52 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     }
 
     if (_isEdit) {
-      await repo.updateProfile(widget.profile!.copyWith(
-        groupId: _groupId!,
-        fullName: _nameCtrl.text.trim(),
-        phone: _phoneCtrl.text.trim(),
-        workTarget: _workTargetCtrl.text.trim(),
-        description: _descCtrl.text.trim(),
-        startDate: _startDate,
-        deadline: _hasDeadline ? _deadline : null,
-        hasDeadline: _hasDeadline,
-        status: _status,
-        totalAmount: amount,
-        note: _noteCtrl.text.trim(),
-        clearDeadline: !_hasDeadline,
-        completedAt: _status == ProfileStatus.completed ? now : null,
-        clearCompletedAt: _status != ProfileStatus.completed,
-        waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
-        clearWaitingReason: !isWaiting,
-        waitingSince: isWaiting ? _waitingSince : null,
-        clearWaitingSince: !isWaiting,
-        expectedResponseDate: isWaiting ? _expectedResponseDate : null,
-        clearExpectedResponseDate: !isWaiting,
-      ));
+      await repo.updateProfile(
+        widget.profile!.copyWith(
+          groupId: _groupId!,
+          fullName: _nameCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+          workTarget: _workTargetCtrl.text.trim(),
+          description: _descCtrl.text.trim(),
+          startDate: _startDate,
+          deadline: _hasDeadline ? _deadline : null,
+          hasDeadline: _hasDeadline,
+          status: _status,
+          totalAmount: amount,
+          note: _noteCtrl.text.trim(),
+          clearDeadline: !_hasDeadline,
+          completedAt: _status == ProfileStatus.completed ? now : null,
+          clearCompletedAt: _status != ProfileStatus.completed,
+          waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
+          clearWaitingReason: !isWaiting,
+          waitingSince: isWaiting ? _waitingSince : null,
+          clearWaitingSince: !isWaiting,
+          expectedResponseDate: isWaiting ? _expectedResponseDate : null,
+          clearExpectedResponseDate: !isWaiting,
+        ),
+      );
     } else {
-      await repo.addProfile(Profile(
-        id: '',
-        groupId: _groupId!,
-        fullName: _nameCtrl.text.trim(),
-        phone: _phoneCtrl.text.trim(),
-        workTarget: _workTargetCtrl.text.trim(),
-        description: _descCtrl.text.trim(),
-        startDate: _startDate,
-        deadline: _hasDeadline ? _deadline : null,
-        hasDeadline: _hasDeadline,
-        status: _status,
-        totalAmount: amount,
-        note: _noteCtrl.text.trim(),
-        createdAt: now,
-        updatedAt: now,
-        waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
-        waitingSince: isWaiting ? _waitingSince : null,
-        expectedResponseDate: isWaiting ? _expectedResponseDate : null,
-      ));
+      await repo.addProfile(
+        Profile(
+          id: '',
+          groupId: _groupId!,
+          fullName: _nameCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+          workTarget: _workTargetCtrl.text.trim(),
+          description: _descCtrl.text.trim(),
+          startDate: _startDate,
+          deadline: _hasDeadline ? _deadline : null,
+          hasDeadline: _hasDeadline,
+          status: _status,
+          totalAmount: amount,
+          note: _noteCtrl.text.trim(),
+          createdAt: now,
+          updatedAt: now,
+          waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
+          waitingSince: isWaiting ? _waitingSince : null,
+          expectedResponseDate: isWaiting ? _expectedResponseDate : null,
+        ),
+      );
     }
 
     if (mounted) Navigator.pop(context);
@@ -183,148 +199,200 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(_isEdit ? 'Sửa hồ sơ' : 'Thêm hồ sơ')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-          children: [
-            TextFormField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'Họ tên *'),
-              validator: Validators.fullName,
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _phoneCtrl,
-              decoration: const InputDecoration(labelText: 'Số điện thoại'),
-              keyboardType: TextInputType.phone,
-              validator: Validators.phone,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _workTargetCtrl,
-              decoration: const InputDecoration(labelText: 'Đích công việc *'),
-              validator: Validators.workTarget,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _descCtrl,
-              decoration: const InputDecoration(labelText: 'Mô tả'),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: groups.any((g) => g.id == _groupId) ? _groupId : null,
-              decoration: const InputDecoration(labelText: 'Nhóm công việc *'),
-              items: [for (final g in groups) DropdownMenuItem(value: g.id, child: Text(g.name))],
-              onChanged: (v) => setState(() => _groupId = v),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<ProfileStatus>(
-              initialValue: _status,
-              decoration: const InputDecoration(labelText: 'Trạng thái'),
-              items: [
-                for (final s in ProfileStatus.values)
-                  DropdownMenuItem(value: s, child: Text(s.label)),
-              ],
-              onChanged: (v) => setState(() => _status = v ?? _status),
-            ),
-            if (_status == ProfileStatus.waiting) ...[
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 4),
-              Text('Thông tin chờ phản hồi', style: context.textTheme.labelLarge),
-              const SizedBox(height: 8),
-              WaitingReasonChips(
-                currentValue: _waitingReasonCtrl.text,
-                onSelected: (v) => setState(() {
-                  _waitingReasonCtrl.text = v == 'Khác' ? '' : v;
-                }),
+      body: ResponsivePage(
+        maxContentWidth: 720,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            children: [
+              // Họ tên | Điện thoại — một cột trên điện thoại, hai cột cạnh
+              // nhau trên tablet/desktop (đủ chỗ, không cần cuộn nhiều).
+              _fieldRow(
+                context,
+                TextFormField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Họ tên *'),
+                  validator: Validators.fullName,
+                  textCapitalization: TextCapitalization.words,
+                ),
+                TextFormField(
+                  controller: _phoneCtrl,
+                  decoration: const InputDecoration(labelText: 'Số điện thoại'),
+                  keyboardType: TextInputType.phone,
+                  validator: Validators.phone,
+                ),
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: _waitingReasonCtrl,
-                decoration: const InputDecoration(labelText: 'Lý do chờ'),
+                controller: _workTargetCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Đích công việc *',
+                ),
+                validator: Validators.workTarget,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _descCtrl,
+                decoration: const InputDecoration(labelText: 'Mô tả'),
                 maxLines: 2,
               ),
               const SizedBox(height: 12),
+              // Nhóm | Trạng thái — cùng cặp 2 cột trên màn hình rộng.
+              _fieldRow(
+                context,
+                DropdownButtonFormField<String>(
+                  initialValue: groups.any((g) => g.id == _groupId)
+                      ? _groupId
+                      : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Nhóm công việc *',
+                  ),
+                  items: [
+                    for (final g in groups)
+                      DropdownMenuItem(value: g.id, child: Text(g.name)),
+                  ],
+                  onChanged: (v) => setState(() => _groupId = v),
+                ),
+                DropdownButtonFormField<ProfileStatus>(
+                  initialValue: _status,
+                  decoration: const InputDecoration(labelText: 'Trạng thái'),
+                  items: [
+                    for (final s in ProfileStatus.values)
+                      DropdownMenuItem(value: s, child: Text(s.label)),
+                  ],
+                  onChanged: (v) => setState(() => _status = v ?? _status),
+                ),
+              ),
+              if (_status == ProfileStatus.waiting) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 4),
+                Text(
+                  'Thông tin chờ phản hồi',
+                  style: context.textTheme.labelLarge,
+                ),
+                const SizedBox(height: 8),
+                WaitingReasonChips(
+                  currentValue: _waitingReasonCtrl.text,
+                  onSelected: (v) => setState(() {
+                    _waitingReasonCtrl.text = v == 'Khác' ? '' : v;
+                  }),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _waitingReasonCtrl,
+                  decoration: const InputDecoration(labelText: 'Lý do chờ'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () => _pickDate(
+                    _waitingSince,
+                    (d) => setState(() => _waitingSince = d),
+                  ),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Chờ từ ngày'),
+                    child: Text(_waitingSince?.ddMMyyyy ?? 'Hôm nay'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () => _pickDate(
+                    _expectedResponseDate,
+                    (d) => setState(() => _expectedResponseDate = d),
+                  ),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Dự kiến có phản hồi',
+                      suffixIcon: _expectedResponseDate == null
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 18),
+                              onPressed: () =>
+                                  setState(() => _expectedResponseDate = null),
+                            ),
+                    ),
+                    child: Text(_expectedResponseDate?.ddMMyyyy ?? 'Chưa rõ'),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
               InkWell(
-                onTap: () => _pickDate(_waitingSince, (d) => setState(() => _waitingSince = d)),
+                onTap: _pickStartDate,
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Chờ từ ngày'),
-                  child: Text(_waitingSince?.ddMMyyyy ?? 'Hôm nay'),
+                  decoration: const InputDecoration(labelText: 'Ngày bắt đầu'),
+                  child: Text(_startDate.ddMMyyyy),
                 ),
               ),
               const SizedBox(height: 12),
-              InkWell(
-                onTap: () =>
-                    _pickDate(_expectedResponseDate, (d) => setState(() => _expectedResponseDate = d)),
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'Dự kiến có phản hồi',
-                    suffixIcon: _expectedResponseDate == null
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 18),
-                            onPressed: () => setState(() => _expectedResponseDate = null),
-                          ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Có hạn hoàn thành (deadline)'),
+                value: _hasDeadline,
+                onChanged: (v) => setState(() => _hasDeadline = v),
+              ),
+              if (_hasDeadline) ...[
+                InkWell(
+                  onTap: _pickDeadline,
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Hạn hoàn thành',
+                      errorText: _deadlineError,
+                    ),
+                    child: Text(_deadline?.ddMMyyyy ?? 'Chọn ngày'),
                   ),
-                  child: Text(_expectedResponseDate?.ddMMyyyy ?? 'Chưa rõ'),
                 ),
+              ],
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _amountCtrl,
+                decoration: const InputDecoration(labelText: 'Tổng tiền (đ)'),
+                keyboardType: TextInputType.number,
+                validator: (v) =>
+                    Validators.nonNegativeAmount(v, field: 'Tổng tiền'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _noteCtrl,
+                decoration: const InputDecoration(labelText: 'Ghi chú'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(_isEdit ? 'Lưu thay đổi' : 'Tạo hồ sơ'),
               ),
             ],
-            const SizedBox(height: 16),
-            InkWell(
-              onTap: _pickStartDate,
-              child: InputDecorator(
-                decoration: const InputDecoration(labelText: 'Ngày bắt đầu'),
-                child: Text(_startDate.ddMMyyyy),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Có hạn hoàn thành (deadline)'),
-              value: _hasDeadline,
-              onChanged: (v) => setState(() => _hasDeadline = v),
-            ),
-            if (_hasDeadline) ...[
-              InkWell(
-                onTap: _pickDeadline,
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'Hạn hoàn thành',
-                    errorText: _deadlineError,
-                  ),
-                  child: Text(_deadline?.ddMMyyyy ?? 'Chọn ngày'),
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _amountCtrl,
-              decoration: const InputDecoration(labelText: 'Tổng tiền (đ)'),
-              keyboardType: TextInputType.number,
-              validator: (v) => Validators.nonNegativeAmount(v, field: 'Tổng tiền'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _noteCtrl,
-              decoration: const InputDecoration(labelText: 'Ghi chú'),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-              child: _saving
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(_isEdit ? 'Lưu thay đổi' : 'Tạo hồ sơ'),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
+
+/// Cặp field hiển thị 1 cột trên điện thoại, 2 cột cạnh nhau trên
+/// tablet/desktop — dùng cho các cặp field ngắn phù hợp đứng chung hàng
+/// (VD: Họ tên/Điện thoại, Nhóm/Trạng thái).
+Widget _fieldRow(BuildContext context, Widget left, Widget right) {
+  if (context.isCompact) {
+    return Column(children: [left, const SizedBox(height: 12), right]);
+  }
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(child: left),
+      const SizedBox(width: 16),
+      Expanded(child: right),
+    ],
+  );
 }

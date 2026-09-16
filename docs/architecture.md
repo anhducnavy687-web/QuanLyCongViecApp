@@ -135,34 +135,74 @@ Firestore snapshot listener (mặc định có cache offline của Firestore SDK
 nên vẫn đọc được dữ liệu đã cache khi mất mạng; các thao tác ghi được
 Firestore SDK tự xếp hàng và đồng bộ lại khi có mạng trở lại.
 
-## Web Mobile Preview (chỉ để xem trước UI trên Chrome)
+## Kiến trúc responsive (Phase 1.2 — Web là nền tảng triển khai chính)
 
-Web KHÔNG phải một nền tảng sản phẩm — Android/iOS vẫn là mục tiêu chính.
-Web chỉ tồn tại để chạy `flutter run -d chrome` và kiểm tra UI mobile
-nhanh trên máy tính, dùng chung toàn bộ `lib/` (models, repositories,
-services, screens, widgets) với Android/iOS.
+Từ Phase 1.2, Web (build `flutter build web --release`, deploy qua
+Netlify) là nền tảng triển khai CHÍNH của ứng dụng — không còn là bản xem
+trước. Toàn bộ màn hình dùng chung 100% `lib/` (models, repositories,
+services, screens, widgets) với Android/iOS; không có screen/widget riêng
+cho web. Điểm khác biệt duy nhất theo nền tảng là cách các screen tự sắp
+xếp bố cục theo kích thước viewport hiện tại.
 
-- `lib/core/preview/mobile_preview_frame.dart` — một **container bọc
-  ngoài**, được gắn vào đúng một chỗ duy nhất: `MaterialApp.builder` trong
-  `lib/app.dart`, chỉ kích hoạt khi `kIsWeb == true`. Nó KHÔNG chứa bất kỳ
-  screen hay logic nghiệp vụ nào — chỉ ép kích thước hiển thị (qua
-  `MediaQuery` override + `Transform.scale`) để nội dung bên trong (chính
-  là `RootScreen`/`MainShell` như trên mobile) trông giống một điện thoại
-  dọc, căn giữa trình duyệt.
-- `lib/core/preview/preview_device.dart` — danh sách preset kích thước
-  (Small Android, Android 6.5", iPhone 15, iPhone Pro Max) để đổi qua lại
-  nhằm kiểm tra responsive, không mô phỏng phần cứng chi tiết.
-- Trên Android/iOS, `kIsWeb` luôn `false` nên `MaterialApp.builder` là
-  `null` và hành vi hoàn toàn như trước khi có Web Preview.
+### Breakpoint tập trung (`lib/core/responsive/responsive.dart`)
+
+Toàn bộ app dùng chung một enum `ScreenSize { compact, medium, expanded }`
+và class `ResponsiveBreakpoints` (compact `< 600px`, medium `600–1024px`,
+expanded `> 1024px`) — không có màn hình nào tự định nghĩa magic number
+breakpoint riêng. `BuildContext` có extension `context.screenSize` /
+`context.isCompact` / `context.isAtLeastMedium` để đọc nhanh, và hàm
+`responsiveValue<T>(context, compact:, medium:, expanded:)` để chọn giá trị
+(VD số cột GridView) theo kích thước hiện tại.
+
+- **`ResponsivePage`** — khung dùng chung để giới hạn chiều rộng nội dung
+  tối đa trên desktop và căn giữa (mặc định `maxContentWidth: 1100` cho
+  danh sách/dashboard, `720` cho form/chi tiết một cột, `420` cho
+  `LoginScreen`). **Không** tự thêm padding ngang — mỗi screen tiếp tục tự
+  quản lý padding của mình (đã có sẵn từ trước, VD
+  `ListView(padding: EdgeInsets.fromLTRB(16, 16, 16, 40))`); `ResponsivePage`
+  chỉ bọc quanh phần BODY, không bọc AppBar/BottomNav. Bọc trực tiếp
+  `horizontalPadding` khác 0 chỉ dùng cho trường hợp `child` chưa tự có
+  padding riêng (VD `LoginScreen`).
+- **`showResponsiveFormSheet<T>()`** — thay cho gọi thẳng
+  `showModalBottomSheet`: compact → bottom sheet trượt lên (thao tác một
+  tay); medium/expanded → `Dialog` căn giữa với `maxWidth` cố định (tránh
+  form kéo giãn hết một màn hình desktop rộng).
+
+### Điều hướng thích ứng (`MainShell`)
+
+`MainShell` (`lib/navigation/main_shell.dart`) giữ nguyên MỘT bộ state
+(`_index`, `_screens`) và chỉ đổi WIDGET điều hướng theo `context.screenSize`:
+
+- **Compact**: `NavigationBar` dưới cùng + `FloatingActionButton` (giống
+  điện thoại truyền thống).
+- **Medium**: `NavigationRail` thu gọn (icon + label, không mở rộng).
+- **Expanded**: `NavigationRail` mở rộng (`extended: true`, giống sidebar
+  desktop), FAB đặt ở `leading` của rail (mẫu Material chính thức).
+
+Không có business logic nào bị nhân đôi giữa các nhánh — chỉ khác widget
+tree hiển thị, cùng đọc/ghi một `_index`.
+
+### `MobilePreviewFrame` — chỉ còn dùng cho dev/debug
+
+`lib/core/preview/mobile_preview_frame.dart` (khung mô phỏng điện thoại
+trên Chrome, có từ trước Phase 1.2) được GIỮ LẠI nhưng thu hẹp phạm vi:
+chỉ bật khi `kIsWeb && !kReleaseMode` (xem `lib/app.dart`). `kReleaseMode`
+là cờ Dart biên dịch (compile-time) — `flutter run -d chrome` (dev) có
+`kReleaseMode == false` nên khung vẫn hiện để tiện xem nhanh giao diện
+điện thoại; `flutter build web --release` (Netlify, production) có
+`kReleaseMode == true` nên khung KHÔNG BAO GIỜ xuất hiện — người dùng cuối
+luôn thấy app chiếm toàn bộ viewport trình duyệt. Cố tình dùng cờ biên
+dịch thay vì kiểm tra theo domain/URL để không có logic "đoán môi trường"
+nào có thể sai lệch.
 
 **Plugin không hỗ trợ Web** (`open_filex`, `path_provider`, và việc dùng
 `dart:io File` trực tiếp trong `FileService`): thay vì loại bỏ khỏi
 Android/iOS hoặc để app crash trên web, `FileService` kiểm tra `kIsWeb`
 và trả về `FileServiceException` với thông báo tiếng Việt thân thiện
-("chưa được hỗ trợ trong Web Preview") trước khi chạm tới các API không
-tồn tại trên web. Hành vi trên Android/iOS không đổi. Riêng chia sẻ văn
-bản (`Share.share`, dùng cho Trích ngang) không phụ thuộc `dart:io` nên
-vẫn hoạt động bình thường trên web.
+trước khi chạm tới các API không tồn tại trên web. Hành vi trên
+Android/iOS không đổi. Riêng chia sẻ văn bản (`Share.share`, dùng cho
+Trích ngang) không phụ thuộc `dart:io` nên vẫn hoạt động bình thường trên
+web.
 
 ## Kiến trúc File/Tài liệu
 
@@ -195,17 +235,47 @@ từ khóa tìm kiếm) trước khi so sánh `contains`, nên gõ "nguyen van a
 khớp "Nguyễn Văn A" mà không cần thay đổi cách lưu trữ dữ liệu (vẫn giữ
 nguyên dấu để hiển thị).
 
-## Kiểm tra responsive bằng widget test (Phase 1.1)
+## Kiểm tra responsive bằng widget test (Phase 1.1, mở rộng ở Phase 1.2)
 
 Không có trình duyệt/thiết bị để chụp ảnh màn hình trực quan trong môi
 trường CI/sandbox, nên `test/responsive_test.dart` dùng
-`tester.view.physicalSize` + `devicePixelRatio = 1.0` để giả lập 4 kích
-thước bắt buộc (360×800, 390×844, 412×915, 430×932), sau đó duyệt qua các
-màn hình chính (Dashboard, Nhóm, Lịch, Thống kê, Cài đặt, Hồ sơ 360° đủ 7
-tab, AddEditTaskScreen) và khẳng định không có `FlutterError` (bao gồm
-`RenderFlex overflow`) phát sinh trong quá trình dựng UI ở từng kích
-thước. Cách này phát hiện được overflow thật (không phải giả lập) —
-chính test này đã lộ ra và dẫn tới việc sửa các `Row` tính tổng tiền dùng
+`tester.view.physicalSize` + `devicePixelRatio = 1.0` để giả lập kích
+thước màn hình, sau đó duyệt qua các màn hình chính (Dashboard, Nhóm,
+Lịch, Thống kê, Cài đặt, Hồ sơ 360° đủ 7 tab, AddEditTaskScreen) và khẳng
+định không có `FlutterError` (bao gồm `RenderFlex overflow`) phát sinh
+trong quá trình dựng UI. Cách này phát hiện được overflow thật (không phải
+giả lập).
+
+Từ Phase 1.2, bộ kích thước được mở rộng để phủ cả tablet/desktop (Web là
+nền tảng chính):
+
+- **Điện thoại**: 320×568, 360×800, 375×812, 390×844, 412×915, 430×932
+- **Tablet**: 768×1024, 820×1180
+- **Desktop**: 1280×720, 1366×768, 1440×900, 1920×1080
+
+Cộng thêm một test **đổi cỡ màn hình liên tục** (1440→800→430→390→1440
+trên CÙNG một cây widget, không dựng lại từ đầu ở mỗi kích thước) để xác
+nhận: không crash, route đang mở (`ProfileDetailScreen`) không bị mất hay
+nhân đôi khi `MainShell` chuyển đổi qua lại giữa `NavigationBar` và
+`NavigationRail`, và vẫn pop về được Dashboard bình thường sau khi đổi cỡ
+nhiều lần.
+
+Bộ test mở rộng ở Phase 1.2 đã lộ ra 2 lỗi thật, cả hai đều đã sửa:
+
+- `ResponsivePage` mặc định có `horizontalPadding: 16`, cộng dồn với
+  padding ngang mà chính mỗi `ListView`/`Column` đã tự khai báo sẵn
+  (double-padding) — đủ để `StatisticsScreen`'s `_StatCard` (grid 2 cột,
+  `childAspectRatio` cố định) tràn theo chiều dọc ở màn hình hẹp. Sửa bằng
+  cách đổi mặc định `horizontalPadding` của `ResponsivePage` về `0` (mỗi
+  screen tiếp tục tự chịu trách nhiệm padding của mình, đúng thiết kế ban
+  đầu).
+- `_MonthHeader` trong `CalendarScreen` dùng `Row(mainAxisAlignment:
+  spaceBetween)` với hai `IconButton` cố định và một `Text` không giới
+  hạn chiều rộng — tràn ở 360×800 khi không gian bị thu hẹp. Sửa theo đúng
+  pattern đã dùng ở Phase 1.1 cho lỗi tương tự: bọc `Text` trong `Expanded`
+  kèm `overflow: TextOverflow.ellipsis`.
+
+Phase 1.1 trước đó cũng đã phát hiện các `Row` tính tổng tiền dùng
 `MainAxisAlignment.spaceBetween` không có `Expanded` (dễ tràn khi nhãn dài
 gặp màn hình hẹp) tại `statistics_screen.dart`, `money_section.dart`,
 `collaborator_detail_screen.dart`, và một `Row` badge/ưu tiên/hạn trong

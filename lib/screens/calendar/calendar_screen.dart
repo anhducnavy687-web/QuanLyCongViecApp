@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../core/extensions/datetime_extensions.dart';
+import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_date_utils.dart';
 import '../../repositories/app_repository.dart';
@@ -47,35 +48,43 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final events = <_CalendarEvent>[];
     for (final agg in repo.allAggregates) {
       final p = agg.profile;
-      events.add(_CalendarEvent(
-        date: AppDateUtils.stripTime(p.startDate),
-        kind: _EventKind.start,
-        profileId: p.id,
-        title: '${p.fullName} — Bắt đầu',
-      ));
-      if (p.hasDeadline && p.deadline != null) {
-        events.add(_CalendarEvent(
-          date: AppDateUtils.stripTime(p.deadline!),
-          kind: _EventKind.deadline,
+      events.add(
+        _CalendarEvent(
+          date: AppDateUtils.stripTime(p.startDate),
+          kind: _EventKind.start,
           profileId: p.id,
-          title: '${p.fullName} — Hạn hoàn thành',
-        ));
+          title: '${p.fullName} — Bắt đầu',
+        ),
+      );
+      if (p.hasDeadline && p.deadline != null) {
+        events.add(
+          _CalendarEvent(
+            date: AppDateUtils.stripTime(p.deadline!),
+            kind: _EventKind.deadline,
+            profileId: p.id,
+            title: '${p.fullName} — Hạn hoàn thành',
+          ),
+        );
       }
       if (p.completedAt != null) {
-        events.add(_CalendarEvent(
-          date: AppDateUtils.stripTime(p.completedAt!),
-          kind: _EventKind.completed,
-          profileId: p.id,
-          title: '${p.fullName} — Đã hoàn thành',
-        ));
+        events.add(
+          _CalendarEvent(
+            date: AppDateUtils.stripTime(p.completedAt!),
+            kind: _EventKind.completed,
+            profileId: p.id,
+            title: '${p.fullName} — Đã hoàn thành',
+          ),
+        );
       }
       for (final m in agg.milestones) {
-        events.add(_CalendarEvent(
-          date: AppDateUtils.stripTime(m.dueDate),
-          kind: _EventKind.milestone,
-          profileId: p.id,
-          title: '${p.fullName} — ${m.title}',
-        ));
+        events.add(
+          _CalendarEvent(
+            date: AppDateUtils.stripTime(m.dueDate),
+            kind: _EventKind.milestone,
+            profileId: p.id,
+            title: '${p.fullName} — ${m.title}',
+          ),
+        );
       }
     }
     return events;
@@ -113,61 +122,72 @@ class _CalendarScreenState extends State<CalendarScreen> {
       // dùng Column cố định. Cuộn cả trang tránh được lỗi này mà không
       // đánh đổi trải nghiệm (lịch tháng vẫn hiển thị đầy đủ, chỉ cuộn
       // xuống để xem hết danh sách sự kiện khi cần).
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _MonthHeader(
-              month: _visibleMonth,
-              onPrev: () => setState(() {
-                _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month - 1);
-              }),
-              onNext: () => setState(() {
-                _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1);
-              }),
-            ),
-            _MonthGrid(
-              month: _visibleMonth,
-              selectedDay: _selectedDay,
-              eventsByDay: eventsByDay,
-              colorFor: _colorFor,
-              onSelect: (d) => setState(() => _selectedDay = d),
-            ),
-            const Divider(height: 1),
-            if (selectedEvents.isEmpty)
-              SizedBox(
-                height: 240,
-                child: EmptyState(
-                  icon: Icons.event_available_rounded,
-                  title: 'Không có sự kiện',
-                  message: 'Ngày ${_selectedDay.ddMMyyyy} không có deadline hay mốc nào.',
-                ),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                itemCount: selectedEvents.length,
-                itemBuilder: (context, i) {
-                  final e = selectedEvents[i];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        radius: 6,
-                        backgroundColor: _colorFor(e.kind),
-                      ),
-                      title: Text(e.title),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ProfileDetailScreen(profileId: e.profileId),
+      body: ResponsivePage(
+        maxContentWidth: 720,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _MonthHeader(
+                month: _visibleMonth,
+                onPrev: () => setState(() {
+                  _visibleMonth = DateTime(
+                    _visibleMonth.year,
+                    _visibleMonth.month - 1,
+                  );
+                }),
+                onNext: () => setState(() {
+                  _visibleMonth = DateTime(
+                    _visibleMonth.year,
+                    _visibleMonth.month + 1,
+                  );
+                }),
+              ),
+              _MonthGrid(
+                month: _visibleMonth,
+                selectedDay: _selectedDay,
+                eventsByDay: eventsByDay,
+                colorFor: _colorFor,
+                onSelect: (d) => setState(() => _selectedDay = d),
+              ),
+              const Divider(height: 1),
+              if (selectedEvents.isEmpty)
+                SizedBox(
+                  height: 240,
+                  child: EmptyState(
+                    icon: Icons.event_available_rounded,
+                    title: 'Không có sự kiện',
+                    message:
+                        'Ngày ${_selectedDay.ddMMyyyy} không có deadline hay mốc nào.',
+                  ),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  itemCount: selectedEvents.length,
+                  itemBuilder: (context, i) {
+                    final e = selectedEvents[i];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          radius: 6,
+                          backgroundColor: _colorFor(e.kind),
+                        ),
+                        title: Text(e.title),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ProfileDetailScreen(profileId: e.profileId),
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-          ],
+                    );
+                  },
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -178,7 +198,11 @@ class _MonthHeader extends StatelessWidget {
   final DateTime month;
   final VoidCallback onPrev;
   final VoidCallback onNext;
-  const _MonthHeader({required this.month, required this.onPrev, required this.onNext});
+  const _MonthHeader({
+    required this.month,
+    required this.onPrev,
+    required this.onNext,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -192,9 +216,15 @@ class _MonthHeader extends StatelessWidget {
             tooltip: 'Tháng trước',
             onPressed: onPrev,
           ),
-          Text(
-            'Tháng ${month.month} / ${month.year}',
-            style: context.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          Expanded(
+            child: Text(
+              'Tháng ${month.month} / ${month.year}',
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: context.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.chevron_right_rounded),
@@ -226,7 +256,9 @@ class _MonthGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final firstOfMonth = DateTime(month.year, month.month, 1);
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-    final leadingEmpty = firstOfMonth.weekday % 7; // Monday=1..Sunday=7 -> Sunday-first grid offset
+    final leadingEmpty =
+        firstOfMonth.weekday %
+        7; // Monday=1..Sunday=7 -> Sunday-first grid offset
     final today = AppDateUtils.stripTime(DateTime.now());
 
     const weekdayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
@@ -240,7 +272,13 @@ class _MonthGrid extends StatelessWidget {
               for (final l in weekdayLabels)
                 Expanded(
                   child: Center(
-                    child: Text(l, style: TextStyle(fontSize: 11, color: context.colors.onSurfaceVariant)),
+                    child: Text(
+                      l,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.colors.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -249,11 +287,17 @@ class _MonthGrid extends StatelessWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+            ),
             itemCount: leadingEmpty + daysInMonth,
             itemBuilder: (context, index) {
               if (index < leadingEmpty) return const SizedBox.shrink();
-              final day = DateTime(month.year, month.month, index - leadingEmpty + 1);
+              final day = DateTime(
+                month.year,
+                month.month,
+                index - leadingEmpty + 1,
+              );
               final isSelected = day == selectedDay;
               final isToday = day == today;
               final dayEvents = eventsByDay[day] ?? const [];
@@ -278,7 +322,9 @@ class _MonthGrid extends StatelessWidget {
                         '${day.day}',
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isToday || isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                           color: isSelected ? context.colors.onPrimary : null,
                         ),
                       ),
@@ -292,10 +338,14 @@ class _MonthGrid extends StatelessWidget {
                                 Container(
                                   width: 4,
                                   height: 4,
-                                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 1,
+                                  ),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: isSelected ? context.colors.onPrimary : colorFor(k),
+                                    color: isSelected
+                                        ? context.colors.onPrimary
+                                        : colorFor(k),
                                   ),
                                 ),
                             ],

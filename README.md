@@ -1,32 +1,34 @@
 # Quản Lý Công Việc (QuanLyCongViecApp)
 
-Ứng dụng Flutter đa nền tảng (Android + iOS) quản lý hồ sơ/công việc cá
-nhân theo mô hình CRM cá nhân: nhóm công việc, hồ sơ, tiến độ theo bước,
-mốc thời gian, tiền bạc, cộng tác viên/hoa hồng, tài liệu đính kèm, lịch và
-thống kê.
+Ứng dụng Flutter đa nền tảng quản lý hồ sơ/công việc cá nhân theo mô hình
+CRM cá nhân: nhóm công việc, hồ sơ, tiến độ theo bước, mốc thời gian, tiền
+bạc, cộng tác viên/hoa hồng, tài liệu đính kèm, lịch và thống kê.
+
+**Responsive Web App là nền tảng triển khai CHÍNH thức của ứng dụng** —
+người dùng mở thẳng URL Netlify trên trình duyệt (điện thoại, máy tính
+bảng, máy tính) để dùng toàn bộ tính năng, **không cần cài đặt gì**. Luồng
+hoạt động: `GitHub → Netlify build (Flutter Web) → HTTPS URL → Trình duyệt
+→ Firebase (Auth + Firestore)`. Giao diện tự thích ứng theo kích thước màn
+hình (điện thoại/tablet/desktop — xem mục **3** và
+[docs/ui-structure.md](docs/ui-structure.md)). **Android và iOS vẫn được hỗ
+trợ build** (không có thay đổi native nào trong phase này) nhưng không còn
+là mục tiêu triển khai ưu tiên duy nhất.
 
 Ứng dụng có **Demo Mode** — chạy được ngay, xem đầy đủ giao diện và dữ liệu
-mẫu phong phú **mà không cần cấu hình Firebase**. Kiến trúc đã sẵn sàng để
-bật đồng bộ nhiều thiết bị qua Firebase khi cần (xem
+mẫu phong phú **mà không cần cấu hình Firebase**. Khi đăng nhập bằng Google
+qua Firebase Auth, Firestore là nguồn dữ liệu duy nhất (single source of
+truth) — dùng cùng một tài khoản Google trên điện thoại, máy tính bảng,
+laptop đều thấy cùng một dữ liệu, đồng bộ realtime (xem
 [docs/firebase-setup.md](docs/firebase-setup.md)).
-
-**Android và iOS vẫn là mục tiêu chính** của ứng dụng. Ngoài ra project có
-thêm **Web Mobile Preview** — chạy `flutter run -d chrome` để xem UI mobile
-ngay trên Chrome, cực nhanh để kiểm tra giao diện mà không cần máy
-thật/emulator. Đây **không phải** một ứng dụng Web độc lập: Web Preview
-dùng chung 100% `lib/models`, `lib/repositories`, `lib/services`,
-`lib/screens`, `lib/widgets` với bản Android/iOS — không có bất kỳ màn
-hình hay widget riêng nào cho web. Xem chi tiết ở mục **3. Web Mobile
-Preview** bên dưới.
 
 ## Tài liệu liên quan
 
-- [docs/architecture.md](docs/architecture.md) — kiến trúc tổng thể, Demo Mode vs Firebase Mode
+- [docs/architecture.md](docs/architecture.md) — kiến trúc tổng thể, Demo Mode vs Firebase Mode, kiến trúc responsive
 - [docs/data-model.md](docs/data-model.md) — mô tả toàn bộ model dữ liệu
 - [docs/firestore-schema.md](docs/firestore-schema.md) — cấu trúc Firestore + Storage
 - [docs/firebase-setup.md](docs/firebase-setup.md) — hướng dẫn cấu hình Firebase từ đầu
-- [docs/ui-structure.md](docs/ui-structure.md) — cấu trúc màn hình & điều hướng
-- [docs/deploy-netlify.md](docs/deploy-netlify.md) — deploy Web Preview lên Netlify để có URL online
+- [docs/ui-structure.md](docs/ui-structure.md) — cấu trúc màn hình, điều hướng & responsive layout
+- [docs/deploy-netlify.md](docs/deploy-netlify.md) — deploy bản Web production lên Netlify để có URL chính thức
 
 ## 1. Cài đặt Flutter
 
@@ -67,12 +69,20 @@ sẵn:
 > Dữ liệu Demo chỉ lưu trong bộ nhớ của phiên chạy hiện tại — thoát app là
 > mất, đúng như một bản demo độc lập với backend.
 
-## 3. Web Mobile Preview (xem nhanh trên Chrome)
+## 3. Web — Responsive Web App (nền tảng triển khai chính)
 
-Dùng để xem/kiểm tra giao diện mobile cực nhanh ngay trên máy tính, **không
-phải** một ứng dụng Web độc lập — Android và iOS vẫn là nền tảng chính.
+Bản production (Netlify, `flutter build web --release`) hiển thị **toàn bộ
+chiều rộng trình duyệt**, không có khung điện thoại/chrome giả lập nào —
+giao diện tự thích ứng theo 3 mức kích thước (xem
+[`lib/core/responsive/responsive.dart`](lib/core/responsive/responsive.dart)):
 
-**Cách chạy đơn giản nhất:**
+| Kích thước | Điều hướng | Bố cục |
+|---|---|---|
+| Compact `< 600px` (điện thoại) | `NavigationBar` dưới cùng + FAB | 1 cột, form 1 cột, dialog dạng bottom sheet |
+| Medium `600–1024px` (tablet) | `NavigationRail` thu gọn | 2–3 cột, tận dụng không gian rộng hơn |
+| Expanded `> 1024px` (desktop) | `NavigationRail` mở rộng (sidebar) | Nội dung giới hạn chiều rộng tối đa + căn giữa, form 2 cột cho các trường ngắn đi cặp, dialog căn giữa |
+
+**Cách chạy khi phát triển:**
 
 ```bash
 flutter pub get
@@ -82,41 +92,44 @@ flutter run -d chrome
 Trên Windows có thể double-click `scripts/run_preview.bat` để chạy 2 lệnh
 trên tự động.
 
-Khi Chrome mở lên, bạn sẽ thấy:
+### Chế độ xem trước điện thoại khi phát triển (chỉ dev/debug)
 
-- Nền tối chiếm toàn màn hình Chrome, **không phải** giao diện app.
-- Một khung điện thoại dọc, bo góc, căn giữa (mặc định **iPhone 15,
-  390×844**) — đây mới là nơi hiển thị app thật.
-- Thanh nhỏ phía trên khung có dropdown **"Preview Device"** để đổi kích
-  thước: Small Android, Android 6.5", iPhone 15, iPhone Pro Max — dùng để
-  kiểm tra responsive UI trên nhiều kích thước màn hình khác nhau.
-- Bên trong khung, chọn **"Dùng thử ở Chế độ Demo"** như trên điện thoại
-  thật — không cần đăng nhập Google, không cần Firestore/Storage.
+Khi chạy bằng `flutter run -d chrome` (debug/dev, `kReleaseMode == false`),
+`MobilePreviewFrame` (`lib/core/preview/mobile_preview_frame.dart`) vẫn
+được bật để tiện xem/kiểm tra giao diện điện thoại nhanh trên Chrome mà
+không cần máy thật/emulator — Chrome hiển thị một khung điện thoại dọc, bo
+góc, căn giữa (mặc định **iPhone 15, 390×844**), có dropdown **"Preview
+Device"** để đổi kích thước (Small Android, Android 6.5", iPhone 15,
+iPhone Pro Max).
 
-Bạn dùng chuột để thao tác (tap, scroll, vuốt) y như trên điện thoại.
+**Bản build production (Netlify, `flutter build web --release`) KHÔNG BAO
+GIỜ hiển thị khung này** — gate là `kIsWeb && !kReleaseMode` trong
+`lib/app.dart`, một cờ biên dịch (compile-time), không phải kiểm tra theo
+tên miền — nên người dùng cuối luôn thấy app chiếm toàn bộ viewport trình
+duyệt, responsive theo bảng ở trên.
 
-**Giới hạn của Web Preview** (không ảnh hưởng tới Android/iOS):
+Bên trong (dù có khung Preview hay không), chọn **"Dùng thử ở Chế độ
+Demo"** để dùng ngay không cần đăng nhập Google, không cần Firestore.
+
+**Giới hạn trên Web** (không ảnh hưởng tới Android/iOS):
 
 - Các thao tác file thật (chọn file, chụp ảnh, mở file, chia sẻ file nhị
   phân) dùng `dart:io`/`open_filex`/`path_provider` — các package này
-  **không hỗ trợ Web**, nên trên Preview các thao tác này hiển thị thông
-  báo "chưa được hỗ trợ trong Web Preview" thay vì thao tác thật. Riêng
-  chức năng **Trích ngang → Sao chép/Chia sẻ văn bản** vẫn hoạt động bình
+  **không hỗ trợ Web**, nên trên trình duyệt các thao tác này hiển thị
+  thông báo lỗi thân thiện thay vì thao tác thật (không crash). Riêng chức
+  năng **Trích ngang → Sao chép/Chia sẻ văn bản** vẫn hoạt động bình
   thường trên web.
-- Đăng nhập Google/Firebase thật vẫn cần cấu hình `flutterfire configure`
-  cho target web nếu muốn dùng (xem [docs/firebase-setup.md](docs/firebase-setup.md)); Demo Mode không cần bước này.
-
-Chi tiết kỹ thuật khung Preview: `lib/core/preview/mobile_preview_frame.dart`
-— đây chỉ là một **container bọc ngoài** toàn bộ `RootScreen`/`MainShell`
-hiện có (qua `MaterialApp.builder`, chỉ kích hoạt khi `kIsWeb`), không có
-bất kỳ screen/widget nào bị nhân bản riêng cho web.
+- Đăng nhập Google thật cần cấu hình `flutterfire configure` cho target
+  web (xem [docs/firebase-setup.md](docs/firebase-setup.md)) và thêm tên
+  miền Netlify vào **Authorized domains** của Firebase Authentication;
+  Demo Mode không cần bước này.
 
 ### Có URL online để mở trên mọi thiết bị (không cần cài gì)
 
-Muốn có một link `https://....netlify.app` để mở Preview trên Chrome ở
-bất kỳ laptop/điện thoại nào mà **không cần cài Flutter/Git** trên thiết
-bị đó? Xem hướng dẫn kết nối repo này với Netlify (~2 phút, qua giao diện
-web, Netlify tự build):
+Muốn có một link `https://....netlify.app` chính thức để mở app trên bất
+kỳ điện thoại/máy tính bảng/laptop nào mà **không cần cài Flutter/Git**
+trên thiết bị đó? Xem hướng dẫn kết nối repo này với Netlify (~2 phút, qua
+giao diện web, Netlify tự build):
 **[docs/deploy-netlify.md](docs/deploy-netlify.md)**.
 
 ## 4. Cấu hình Firebase (tùy chọn, để đồng bộ nhiều thiết bị)
@@ -209,4 +222,4 @@ Xem chi tiết kiến trúc tại [docs/architecture.md](docs/architecture.md).
 - Nhập lại (import/restore) từ file backup
 - Sao lưu định kỳ tự động
 
-Task hiện tại (Web Mobile Preview) không thay đổi phạm vi này.
+Phase 1.2 (Responsive Web App) không thay đổi phạm vi này.

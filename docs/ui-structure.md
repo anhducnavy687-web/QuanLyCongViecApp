@@ -20,6 +20,40 @@ LoginScreen
 `RootScreen` (`lib/navigation/root_screen.dart`) là nơi duy nhất quyết
 định hiển thị Splash/Login/MainShell dựa trên `AppSession.status`.
 
+## Responsive (Phase 1.2)
+
+Mọi màn hình dưới đây dùng CHUNG một cây widget cho cả điện thoại, tablet
+và desktop — không có screen riêng theo nền tảng. Khác biệt duy nhất là bố
+cục tự thích ứng theo `context.screenSize`
+(xem [docs/architecture.md](architecture.md#kiến-trúc-responsive-phase-12--web-là-nền-tảng-triển-khai-chính)):
+
+- **`MainShell`**: `NavigationBar` (compact) ↔ `NavigationRail` thu gọn
+  (medium) ↔ `NavigationRail` mở rộng dạng sidebar (expanded).
+- **`DashboardScreen`**: dải `StatPill` tự xuống dòng theo chiều rộng
+  (`Wrap`); 4 mục xem nhanh ("Việc hôm nay/quá hạn", "Đang chờ", "Sắp
+  tới") xếp 1 cột trên compact, 2 cột trên medium/expanded.
+  Toàn bộ nội dung bọc trong `ResponsivePage` (giới hạn chiều rộng tối đa
+  trên màn hình rất rộng, tránh dàn trải vô nghĩa).
+  Chọn/ Filter dialog (Nhóm, Cộng tác viên) dùng `showResponsiveFormSheet`
+  thay vì gọi thẳng `showModalBottomSheet`.
+- **`ProfileDetailScreen`** (Hồ sơ 360°): mỗi trong 7 tab bọc riêng trong
+  `ResponsivePage(maxContentWidth: 720)` — nội dung không kéo giãn hết một
+  màn hình desktop rộng, tab bar cuộn ngang giữ nguyên (đủ dùng ở mọi kích
+  thước, không cần đổi sang menu/segmented control).
+- **`AddEditProfileScreen`**: các cặp trường ngắn (Họ tên|Điện thoại, Ngày
+  bắt đầu|Deadline, Nhóm|Trạng thái) xếp ngang qua helper `_fieldRow()`
+  trên medium/expanded, xếp dọc trên compact — cùng logic validate/lưu,
+  chỉ khác layout.
+- **`TasksScreen`, `SearchScreen`, `CalendarScreen`, `StatisticsScreen`,
+  `SettingsScreen`, `GroupsScreen`/`GroupDetailScreen`,
+  `CollaboratorsScreen`/`CollaboratorDetailScreen`**: bọc trong
+  `ResponsivePage` để giới hạn chiều rộng tối đa trên desktop;
+  `StatisticsScreen`'s `GridView` dùng `responsiveValue` để tăng số cột
+  (2 → 3 → 5) theo kích thước.
+- **`LoginScreen`**: bọc trong `ResponsivePage(maxContentWidth: 420)` —
+  form đăng nhập không kéo giãn hết chiều rộng trên desktop, vẫn full-width
+  như cũ trên điện thoại.
+
 ## MainShell — 5 tab chính
 
 | Tab | Icon | Màn hình |

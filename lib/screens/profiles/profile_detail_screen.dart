@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/extensions/context_extensions.dart';
+import '../../core/responsive/responsive.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/attachment_section.dart';
 import '../../widgets/collaborator_assignment_section.dart';
@@ -24,7 +25,11 @@ import 'trich_ngang_screen.dart';
 class ProfileDetailScreen extends StatelessWidget {
   final String profileId;
   final int initialTabIndex;
-  const ProfileDetailScreen({super.key, required this.profileId, this.initialTabIndex = 0});
+  const ProfileDetailScreen({
+    super.key,
+    required this.profileId,
+    this.initialTabIndex = 0,
+  });
 
   static const _tabs = [
     Tab(text: 'Tổng quan'),
@@ -43,7 +48,10 @@ class ProfileDetailScreen extends StatelessWidget {
     if (profile == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const EmptyState(icon: Icons.person_off_rounded, title: 'Hồ sơ không tồn tại hoặc đã bị xóa'),
+        body: const EmptyState(
+          icon: Icons.person_off_rounded,
+          title: 'Hồ sơ không tồn tại hoặc đã bị xóa',
+        ),
       );
     }
 
@@ -58,14 +66,18 @@ class ProfileDetailScreen extends StatelessWidget {
               icon: const Icon(Icons.description_outlined),
               tooltip: 'Trích ngang',
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => TrichNgangScreen(profileId: profileId)),
+                MaterialPageRoute(
+                  builder: (_) => TrichNgangScreen(profileId: profileId),
+                ),
               ),
             ),
             PopupMenuButton<String>(
               onSelected: (v) {
                 if (v == 'edit') {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => AddEditProfileScreen(profile: profile)),
+                    MaterialPageRoute(
+                      builder: (_) => AddEditProfileScreen(profile: profile),
+                    ),
                   );
                 } else if (v == 'delete') {
                   _confirmDelete(context, repo, profileId);
@@ -82,29 +94,47 @@ class ProfileDetailScreen extends StatelessWidget {
         body: TabBarView(
           children: [
             _OverviewTab(profileId: profileId),
-            ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-              children: [StageStepList(profileId: profileId)],
+            ResponsivePage(
+              maxContentWidth: 720,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                children: [StageStepList(profileId: profileId)],
+              ),
             ),
-            ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-              children: [TaskListSection(profileId: profileId)],
+            ResponsivePage(
+              maxContentWidth: 720,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                children: [TaskListSection(profileId: profileId)],
+              ),
             ),
-            ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-              children: [ProfileTimelineSection(profileId: profileId)],
+            ResponsivePage(
+              maxContentWidth: 720,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                children: [ProfileTimelineSection(profileId: profileId)],
+              ),
             ),
-            ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-              children: [MoneySection(profileId: profileId)],
+            ResponsivePage(
+              maxContentWidth: 720,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                children: [MoneySection(profileId: profileId)],
+              ),
             ),
-            ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-              children: [CollaboratorAssignmentSection(profileId: profileId)],
+            ResponsivePage(
+              maxContentWidth: 720,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                children: [CollaboratorAssignmentSection(profileId: profileId)],
+              ),
             ),
-            ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-              children: [AttachmentSection(profileId: profileId)],
+            ResponsivePage(
+              maxContentWidth: 720,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                children: [AttachmentSection(profileId: profileId)],
+              ),
             ),
           ],
         ),
@@ -112,17 +142,28 @@ class ProfileDetailScreen extends StatelessWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, AppRepository repo, String profileId) {
+  void _confirmDelete(
+    BuildContext context,
+    AppRepository repo,
+    String profileId,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Xóa hồ sơ?'),
-        content: const Text('Toàn bộ dữ liệu liên quan (bước xử lý, giao dịch, tài liệu...) sẽ bị xóa. '
-            'Hành động này không thể hoàn tác.'),
+        content: const Text(
+          'Toàn bộ dữ liệu liên quan (bước xử lý, giao dịch, tài liệu...) sẽ bị xóa. '
+          'Hành động này không thể hoàn tác.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
               await repo.deleteProfile(profileId);
@@ -146,69 +187,82 @@ class _OverviewTab extends StatelessWidget {
     final profile = repo.profileById(profileId)!;
     final aggregate = repo.aggregateOf(profileId);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.arrow_forward_rounded, size: 16, color: context.colors.onSurfaceVariant),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(profile.workTarget, style: context.textTheme.titleMedium),
+    return ResponsivePage(
+      maxContentWidth: 720,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 16,
+                        color: context.colors.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          profile.workTarget,
+                          style: context.textTheme.titleMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(children: [StatusBadge(status: profile.status)]),
+                  if (profile.phone.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.phone_outlined, size: 16),
+                        const SizedBox(width: 6),
+                        Text(profile.phone),
+                      ],
                     ),
                   ],
-                ),
-                const SizedBox(height: 10),
-                Row(children: [StatusBadge(status: profile.status)]),
-                if (profile.phone.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.phone_outlined, size: 16),
-                      const SizedBox(width: 6),
-                      Text(profile.phone),
-                    ],
+                  if (aggregate.group != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.folder_outlined, size: 16),
+                        const SizedBox(width: 6),
+                        Text(aggregate.group!.name),
+                      ],
+                    ),
+                  ],
+                  if (profile.description.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      profile.description,
+                      style: context.textTheme.bodyMedium,
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  TimelineBar(
+                    startDate: profile.startDate,
+                    deadline: profile.deadline,
+                    hasDeadline: profile.hasDeadline,
                   ),
+                  if (profile.note.isNotEmpty) ...[
+                    const Divider(height: 24),
+                    Text('Ghi chú', style: context.textTheme.labelLarge),
+                    const SizedBox(height: 4),
+                    Text(profile.note, style: context.textTheme.bodyMedium),
+                  ],
                 ],
-                if (aggregate.group != null) ...[
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(Icons.folder_outlined, size: 16),
-                      const SizedBox(width: 6),
-                      Text(aggregate.group!.name),
-                    ],
-                  ),
-                ],
-                if (profile.description.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(profile.description, style: context.textTheme.bodyMedium),
-                ],
-                const SizedBox(height: 14),
-                TimelineBar(
-                  startDate: profile.startDate,
-                  deadline: profile.deadline,
-                  hasDeadline: profile.hasDeadline,
-                ),
-                if (profile.note.isNotEmpty) ...[
-                  const Divider(height: 24),
-                  Text('Ghi chú', style: context.textTheme.labelLarge),
-                  const SizedBox(height: 4),
-                  Text(profile.note, style: context.textTheme.bodyMedium),
-                ],
-              ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 14),
-        ProfileTimelineSection(profileId: profileId),
-      ],
+          const SizedBox(height: 14),
+          ProfileTimelineSection(profileId: profileId),
+        ],
+      ),
     );
   }
 }

@@ -1,7 +1,9 @@
-# Cấu hình build cho Netlify — cho phép deploy Web Mobile Preview trực
-# tiếp từ Git mà KHÔNG cần cài Flutter trên máy của bạn hay trên máy build
-# của Netlify từ trước: lệnh build bên dưới tự tải Flutter SDK (kênh
-# stable) về máy build của Netlify rồi build Web Preview.
+# Cấu hình build cho Netlify — Web là nền tảng triển khai CHÍNH của ứng
+# dụng (không phải bản xem trước): người dùng mở thẳng URL Netlify trên
+# trình duyệt (điện thoại/máy tính bảng/máy tính) để dùng app, không cần
+# cài đặt. Lệnh build bên dưới tự tải Flutter SDK (kênh stable) về máy
+# build của Netlify rồi build Web bản release — không cần cài Flutter
+# trên máy của bạn hay cấu hình trước trên Netlify.
 #
 # Không ảnh hưởng gì tới Android/iOS — file này chỉ được Netlify đọc.
 

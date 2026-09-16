@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/extensions/context_extensions.dart';
+import '../../core/responsive/responsive.dart';
 import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/empty_state.dart';
@@ -23,21 +24,25 @@ class GroupsScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.add_rounded),
             tooltip: 'Thêm nhóm',
-            onPressed: () => showModalBottomSheet(
+            onPressed: () => showResponsiveFormSheet(
               context: context,
-              isScrollControlled: true,
               builder: (_) => const AddEditGroupSheet(),
             ),
           ),
         ],
       ),
       body: groups.isEmpty
-          ? const EmptyState(icon: Icons.folder_off_outlined, title: 'Chưa có nhóm công việc nào')
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-              itemCount: groups.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, i) => _GroupCard(group: groups[i]),
+          ? const EmptyState(
+              icon: Icons.folder_off_outlined,
+              title: 'Chưa có nhóm công việc nào',
+            )
+          : ResponsivePage(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                itemCount: groups.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, i) => _GroupCard(group: groups[i]),
+              ),
             ),
     );
   }
@@ -52,19 +57,28 @@ class _GroupCard extends StatelessWidget {
     final repo = context.watch<AppRepository>();
     final profiles = repo.profilesByGroup(group.id);
     final total = profiles.length;
-    final inProgress = profiles.where((p) => p.status == ProfileStatus.inProgress).length;
-    final waiting = profiles.where((p) => p.status == ProfileStatus.waiting).length;
-    final completed = profiles.where((p) => p.status == ProfileStatus.completed).length;
+    final inProgress = profiles
+        .where((p) => p.status == ProfileStatus.inProgress)
+        .length;
+    final waiting = profiles
+        .where((p) => p.status == ProfileStatus.waiting)
+        .length;
+    final completed = profiles
+        .where((p) => p.status == ProfileStatus.completed)
+        .length;
     final overdue = profiles.where((p) {
       if (!p.hasDeadline || p.deadline == null) return false;
-      return repo.aggregateOf(p.id).deadlineCategory == DeadlineCategory.overdue;
+      return repo.aggregateOf(p.id).deadlineCategory ==
+          DeadlineCategory.overdue;
     }).length;
 
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => GroupDetailScreen(groupId: group.id)),
+          MaterialPageRoute(
+            builder: (_) => GroupDetailScreen(groupId: group.id),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -79,23 +93,34 @@ class _GroupCard extends StatelessWidget {
                       color: context.colors.primaryContainer,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.folder_rounded, color: context.colors.onPrimaryContainer, size: 20),
+                    child: Icon(
+                      Icons.folder_rounded,
+                      color: context.colors.onPrimaryContainer,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       group.name,
-                      style: context.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: context.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded, color: context.colors.onSurfaceVariant),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: context.colors.onSurfaceVariant,
+                  ),
                 ],
               ),
               if (group.description.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
                   group.description,
-                  style: context.textTheme.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: context.colors.onSurfaceVariant,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -105,7 +130,12 @@ class _GroupCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 6,
                 children: [
-                  _miniStat(context, 'Tổng', total, context.colors.onSurfaceVariant),
+                  _miniStat(
+                    context,
+                    'Tổng',
+                    total,
+                    context.colors.onSurfaceVariant,
+                  ),
                   _miniStat(context, 'Đang xử lý', inProgress, Colors.blue),
                   _miniStat(context, 'Đang chờ', waiting, Colors.purple),
                   _miniStat(context, 'Quá hạn', overdue, Colors.red),
@@ -128,7 +158,11 @@ class _GroupCard extends StatelessWidget {
       ),
       child: Text(
         '$label: $value',
-        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

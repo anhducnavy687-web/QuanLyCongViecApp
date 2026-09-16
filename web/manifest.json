@@ -1,12 +1,11 @@
 {
-    "name": "Quản Lý Công Việc — Mobile Preview",
-    "short_name": "QLCV Preview",
+    "name": "Quản Lý Công Việc",
+    "short_name": "QLCV",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#1E6091",
     "theme_color": "#1E6091",
-    "description": "Web Mobile Preview cho ứng dụng Quản Lý Công Việc (Android/iOS là mục tiêu chính).",
-    "orientation": "portrait-primary",
+    "description": "Ứng dụng quản lý hồ sơ, công việc, lịch, tài chính và tài liệu — dùng được trên điện thoại, máy tính bảng và máy tính qua trình duyệt, không bắt buộc cài đặt.",
     "prefer_related_applications": false,
     "icons": [
         {
