@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/utils/app_date_utils.dart';
 import '../models/models.dart';
+import '../services/firebase_error_message.dart';
 import 'app_repository.dart';
 
 /// Triển khai [AppRepository] thật bằng Cloud Firestore.
@@ -24,13 +25,21 @@ import 'app_repository.dart';
 /// [DemoRepository], chỉ khác là dữ liệu tới từ server và có thể có độ trễ.
 class FirebaseRepository extends AppRepository {
   FirebaseRepository({required this.uid, FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+    : _db = firestore ?? FirebaseFirestore.instance;
 
   final String uid;
   final FirebaseFirestore _db;
 
   bool _ready = false;
-  final bool _online = true;
+  bool _online = true;
+  bool _disposed = false;
+  String? _syncError;
+  Future<void>? _initializing;
+  final _initialData = Completer<void>();
+  final Set<String> _pendingInitial = {};
+
+  @override
+  String? get syncError => _syncError;
 
   final List<WorkGroup> _groups = [];
   final List<Profile> _profiles = [];
@@ -73,44 +82,91 @@ class FirebaseRepository extends AppRepository {
       _profilesRef.doc(id);
 
   @override
-  Future<void> init() async {
+  Future<void> init() => _initializing ??= _startListeners();
+
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>> _listen(
+    CollectionReference<Map<String, dynamic>> ref,
+    void Function(QuerySnapshot<Map<String, dynamic>>) onData,
+  ) {
+    _pendingInitial.add(ref.path);
+    return ref.snapshots(includeMetadataChanges: true).listen((snapshot) {
+      if (_disposed || _syncError != null) return;
+      try {
+        onData(snapshot);
+        // Do not treat an empty offline cache as an empty server database.
+        if (!snapshot.metadata.isFromCache) {
+          _pendingInitial.remove(ref.path);
+          if (_pendingInitial.isEmpty && !_initialData.isCompleted) {
+            _ready = true;
+            _initialData.complete();
+          }
+        }
+        notifyListeners();
+      } catch (e) {
+        _listenerError(e);
+      }
+    }, onError: _listenerError);
+  }
+
+  void _listenerError(Object error) {
+    if (_disposed || _syncError != null) return;
+    _ready = false;
+    _online = false;
+    _syncError = firebaseErrorMessage(error);
+    if (!_initialData.isCompleted) {
+      _initialData.completeError(RepositoryException(_syncError!));
+    }
+    notifyListeners();
+  }
+
+  Future<void> _startListeners() async {
     if (_ready) return;
     try {
-      _topLevelSubs.add(_groupsRef.snapshots().listen((snap) {
-        _groups
-          ..clear()
-          ..addAll(snap.docs.map((d) => WorkGroup.fromJson(d.data())));
-        notifyListeners();
-      }));
+      _topLevelSubs.add(
+        _listen(_groupsRef, (snap) {
+          _groups
+            ..clear()
+            ..addAll(snap.docs.map((d) => WorkGroup.fromJson(d.data())));
+          notifyListeners();
+        }),
+      );
 
-      _topLevelSubs.add(_collaboratorsRef.snapshots().listen((snap) {
-        _collaborators
-          ..clear()
-          ..addAll(snap.docs.map((d) => Collaborator.fromJson(d.data())));
-        notifyListeners();
-      }));
+      _topLevelSubs.add(
+        _listen(_collaboratorsRef, (snap) {
+          _collaborators
+            ..clear()
+            ..addAll(snap.docs.map((d) => Collaborator.fromJson(d.data())));
+          notifyListeners();
+        }),
+      );
 
-      _topLevelSubs.add(_profilesRef.snapshots().listen((snap) {
-        final newIds = snap.docs.map((d) => d.id).toSet();
-        final oldIds = _profiles.map((p) => p.id).toSet();
+      _topLevelSubs.add(
+        _listen(_profilesRef, (snap) {
+          final newIds = snap.docs.map((d) => d.id).toSet();
+          final oldIds = _profiles.map((p) => p.id).toSet();
 
-        _profiles
-          ..clear()
-          ..addAll(snap.docs.map((d) => Profile.fromJson(d.data())));
+          _profiles
+            ..clear()
+            ..addAll(snap.docs.map((d) => Profile.fromJson(d.data())));
 
-        for (final removedId in oldIds.difference(newIds)) {
-          _detachProfileListeners(removedId);
-        }
-        for (final addedId in newIds.difference(oldIds)) {
-          _attachProfileListeners(addedId);
-        }
-        notifyListeners();
-      }));
+          for (final removedId in oldIds.difference(newIds)) {
+            _detachProfileListeners(removedId);
+          }
+          for (final addedId in newIds.difference(oldIds)) {
+            _attachProfileListeners(addedId);
+          }
+          notifyListeners();
+        }),
+      );
 
-      _ready = true;
+      await _initialData.future.timeout(const Duration(seconds: 15));
       notifyListeners();
     } catch (e) {
-      throw Exception('Không thể kết nối tới Firestore: $e');
+      _ready = false;
+      _syncError = e is RepositoryException
+          ? e.message
+          : firebaseErrorMessage(e);
+      throw RepositoryException(_syncError!);
     }
   }
 
@@ -118,44 +174,62 @@ class FirebaseRepository extends AppRepository {
     final subs = <StreamSubscription>[];
     final doc = _profileDoc(profileId);
 
-    subs.add(doc.collection('stages').snapshots().listen((snap) {
-      _stages[profileId] = snap.docs.map((d) => WorkStage.fromJson(d.data())).toList()
-        ..sort((a, b) => a.order.compareTo(b.order));
-      notifyListeners();
-    }));
-    subs.add(doc.collection('milestones').snapshots().listen((snap) {
-      _milestones[profileId] =
-          snap.docs.map((d) => Milestone.fromJson(d.data())).toList();
-      notifyListeners();
-    }));
-    subs.add(doc.collection('transactions').snapshots().listen((snap) {
-      _transactions[profileId] =
-          snap.docs.map((d) => MoneyTransaction.fromJson(d.data())).toList()
-            ..sort((a, b) => b.date.compareTo(a.date));
-      notifyListeners();
-    }));
-    subs.add(doc.collection('collaboratorAssignments').snapshots().listen((snap) {
-      _assignments[profileId] = snap.docs
-          .map((d) => CollaboratorAssignment.fromJson(d.data()))
-          .toList();
-      notifyListeners();
-    }));
-    subs.add(doc.collection('attachments').snapshots().listen((snap) {
-      _attachments[profileId] =
-          snap.docs.map((d) => Attachment.fromJson(d.data())).toList();
-      notifyListeners();
-    }));
-    subs.add(doc.collection('tasks').snapshots().listen((snap) {
-      _tasks[profileId] = snap.docs.map((d) => TaskItem.fromJson(d.data())).toList()
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      notifyListeners();
-    }));
-    subs.add(doc.collection('timelineEvents').snapshots().listen((snap) {
-      _timelineEvents[profileId] =
-          snap.docs.map((d) => TimelineEvent.fromJson(d.data())).toList()
-            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      notifyListeners();
-    }));
+    subs.add(
+      _listen(doc.collection('stages'), (snap) {
+        _stages[profileId] =
+            snap.docs.map((d) => WorkStage.fromJson(d.data())).toList()
+              ..sort((a, b) => a.order.compareTo(b.order));
+        notifyListeners();
+      }),
+    );
+    subs.add(
+      _listen(doc.collection('milestones'), (snap) {
+        _milestones[profileId] = snap.docs
+            .map((d) => Milestone.fromJson(d.data()))
+            .toList();
+        notifyListeners();
+      }),
+    );
+    subs.add(
+      _listen(doc.collection('transactions'), (snap) {
+        _transactions[profileId] =
+            snap.docs.map((d) => MoneyTransaction.fromJson(d.data())).toList()
+              ..sort((a, b) => b.date.compareTo(a.date));
+        notifyListeners();
+      }),
+    );
+    subs.add(
+      _listen(doc.collection('collaboratorAssignments'), (snap) {
+        _assignments[profileId] = snap.docs
+            .map((d) => CollaboratorAssignment.fromJson(d.data()))
+            .toList();
+        notifyListeners();
+      }),
+    );
+    subs.add(
+      _listen(doc.collection('attachments'), (snap) {
+        _attachments[profileId] = snap.docs
+            .map((d) => Attachment.fromJson(d.data()))
+            .toList();
+        notifyListeners();
+      }),
+    );
+    subs.add(
+      _listen(doc.collection('tasks'), (snap) {
+        _tasks[profileId] =
+            snap.docs.map((d) => TaskItem.fromJson(d.data())).toList()
+              ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        notifyListeners();
+      }),
+    );
+    subs.add(
+      _listen(doc.collection('timelineEvents'), (snap) {
+        _timelineEvents[profileId] =
+            snap.docs.map((d) => TimelineEvent.fromJson(d.data())).toList()
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        notifyListeners();
+      }),
+    );
 
     _profileSubs[profileId] = subs;
   }
@@ -165,6 +239,9 @@ class FirebaseRepository extends AppRepository {
       s.cancel();
     }
     _profileSubs.remove(profileId);
+    _pendingInitial.removeWhere(
+      (path) => path.startsWith('${_profileDoc(profileId).path}/'),
+    );
     _stages.remove(profileId);
     _milestones.remove(profileId);
     _transactions.remove(profileId);
@@ -176,6 +253,14 @@ class FirebaseRepository extends AppRepository {
 
   @override
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _ready = false;
+    if (!_initialData.isCompleted && _initializing != null) {
+      _initialData.completeError(
+        const RepositoryException('Phiên dữ liệu đã kết thúc.'),
+      );
+    }
     for (final s in _topLevelSubs) {
       s.cancel();
     }
@@ -243,7 +328,9 @@ class FirebaseRepository extends AppRepository {
       List.unmodifiable(_assignments[profileId] ?? const []);
 
   @override
-  List<CollaboratorAssignment> assignmentsOfCollaborator(String collaboratorId) {
+  List<CollaboratorAssignment> assignmentsOfCollaborator(
+    String collaboratorId,
+  ) {
     final result = <CollaboratorAssignment>[];
     for (final list in _assignments.values) {
       result.addAll(list.where((a) => a.collaboratorId == collaboratorId));
@@ -267,8 +354,13 @@ class FirebaseRepository extends AppRepository {
   List<TaskItem> get allOpenTasks {
     final result = <TaskItem>[];
     for (final list in _tasks.values) {
-      result.addAll(list.where((t) =>
-          t.status != TaskStatus.completed && t.status != TaskStatus.cancelled));
+      result.addAll(
+        list.where(
+          (t) =>
+              t.status != TaskStatus.completed &&
+              t.status != TaskStatus.cancelled,
+        ),
+      );
     }
     return result;
   }
@@ -301,7 +393,10 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<WorkGroup> addGroup({required String name, String description = ''}) async {
+  Future<WorkGroup> addGroup({
+    required String name,
+    String description = '',
+  }) async {
     final doc = _groupsRef.doc();
     final now = DateTime.now();
     final group = WorkGroup(
@@ -323,7 +418,10 @@ class FirebaseRepository extends AppRepository {
 
   @override
   Future<void> deleteGroup(String id) async {
-    final profileIds = _profiles.where((p) => p.groupId == id).map((p) => p.id).toList();
+    final profileIds = _profiles
+        .where((p) => p.groupId == id)
+        .map((p) => p.id)
+        .toList();
     for (final pid in profileIds) {
       await deleteProfile(pid);
     }
@@ -335,13 +433,25 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Profile> addProfile(Profile profile, {bool withDefaultStages = true}) async {
-    final doc = profile.id.isEmpty ? _profilesRef.doc() : _profilesRef.doc(profile.id);
+  Future<Profile> addProfile(
+    Profile profile, {
+    bool withDefaultStages = true,
+  }) async {
+    final doc = profile.id.isEmpty
+        ? _profilesRef.doc()
+        : _profilesRef.doc(profile.id);
     final now = DateTime.now();
-    final newProfile = profile.copyWith(id: doc.id, createdAt: now, updatedAt: now);
+    final newProfile = profile.copyWith(
+      id: doc.id,
+      createdAt: now,
+      updatedAt: now,
+    );
     await doc.set(newProfile.toJson());
-    await _logEvent(doc.id, TimelineEventType.profileCreated,
-        'Tạo hồ sơ "${newProfile.fullName}"');
+    await _logEvent(
+      doc.id,
+      TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${newProfile.fullName}"',
+    );
 
     if (withDefaultStages) {
       const names = [
@@ -374,23 +484,33 @@ class FirebaseRepository extends AppRepository {
     final updated = profile.copyWith(updatedAt: DateTime.now());
     await _profileDoc(profile.id).set(updated.toJson());
     if (old != null && old.status != updated.status) {
-      await _logEvent(updated.id, TimelineEventType.statusChanged,
-          'Đổi trạng thái: ${old.status.label} → ${updated.status.label}');
+      await _logEvent(
+        updated.id,
+        TimelineEventType.statusChanged,
+        'Đổi trạng thái: ${old.status.label} → ${updated.status.label}',
+      );
       if (updated.status == ProfileStatus.waiting) {
         await _logEvent(
-            updated.id,
-            TimelineEventType.waitingStarted,
-            updated.waitingReason?.isNotEmpty == true
-                ? 'Bắt đầu chờ: ${updated.waitingReason}'
-                : 'Bắt đầu chờ phản hồi');
+          updated.id,
+          TimelineEventType.waitingStarted,
+          updated.waitingReason?.isNotEmpty == true
+              ? 'Bắt đầu chờ: ${updated.waitingReason}'
+              : 'Bắt đầu chờ phản hồi',
+        );
       } else if (old.status == ProfileStatus.waiting) {
         await _logEvent(
-            updated.id, TimelineEventType.waitingResolved, 'Kết thúc chờ');
+          updated.id,
+          TimelineEventType.waitingResolved,
+          'Kết thúc chờ',
+        );
       }
     }
     if (old != null && old.deadline != updated.deadline) {
-      await _logEvent(updated.id, TimelineEventType.profileUpdated,
-          _describeDeadlineChange(old, updated));
+      await _logEvent(
+        updated.id,
+        TimelineEventType.profileUpdated,
+        _describeDeadlineChange(old, updated),
+      );
     }
   }
 
@@ -460,7 +580,10 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> reorderStages(String profileId, List<String> orderedStageIds) async {
+  Future<void> reorderStages(
+    String profileId,
+    List<String> orderedStageIds,
+  ) async {
     final ref = _profileDoc(profileId).collection('stages');
     final batch = _db.batch();
     for (var i = 0; i < orderedStageIds.length; i++) {
@@ -475,22 +598,29 @@ class FirebaseRepository extends AppRepository {
     final stage = _findStage(stageId);
     if (stage == null) return;
     final now = DateTime.now();
-    await updateStage(stage.copyWith(
-      status: StageStatus.completed,
-      completedAt: now,
-      startDate: stage.startDate ?? now,
-    ));
-    await _logEvent(stage.profileId, TimelineEventType.stageCompleted,
-        'Hoàn thành bước "${stage.name}"');
+    await updateStage(
+      stage.copyWith(
+        status: StageStatus.completed,
+        completedAt: now,
+        startDate: stage.startDate ?? now,
+      ),
+    );
+    await _logEvent(
+      stage.profileId,
+      TimelineEventType.stageCompleted,
+      'Hoàn thành bước "${stage.name}"',
+    );
     final siblings = stagesOf(stage.profileId);
     final nextIdx = siblings.indexWhere(
       (s) => s.order > stage.order && s.status == StageStatus.pending,
     );
     if (nextIdx != -1) {
-      await updateStage(siblings[nextIdx].copyWith(
-        status: StageStatus.inProgress,
-        startDate: now,
-      ));
+      await updateStage(
+        siblings[nextIdx].copyWith(
+          status: StageStatus.inProgress,
+          startDate: now,
+        ),
+      );
     }
   }
 
@@ -498,10 +628,12 @@ class FirebaseRepository extends AppRepository {
   Future<void> setStageInProgress(String stageId) async {
     final stage = _findStage(stageId);
     if (stage == null) return;
-    await updateStage(stage.copyWith(
-      status: StageStatus.inProgress,
-      startDate: stage.startDate ?? DateTime.now(),
-    ));
+    await updateStage(
+      stage.copyWith(
+        status: StageStatus.inProgress,
+        startDate: stage.startDate ?? DateTime.now(),
+      ),
+    );
   }
 
   WorkStage? _findStage(String stageId) {
@@ -516,7 +648,8 @@ class FirebaseRepository extends AppRepository {
   Future<void> _touchProfile(String profileId) async {
     final profile = profileById(profileId);
     if (profile == null) return;
-    await _profileDoc(profileId).update({'updatedAt': DateTime.now().toIso8601String()});
+    await _profileDoc(profileId)
+        .update({'updatedAt': DateTime.now().toIso8601String()});
   }
 
   // ---------------------------------------------------------------------
@@ -556,54 +689,89 @@ class FirebaseRepository extends AppRepository {
 
   @override
   Future<MoneyTransaction> addTransaction(MoneyTransaction transaction) async {
-    final ref = _profileDoc(transaction.profileId).collection('transactions');
+    final profile = _profileDoc(transaction.profileId);
+    final ref = profile.collection('transactions');
     final doc = transaction.id.isEmpty ? ref.doc() : ref.doc(transaction.id);
     final t = transaction.copyWith(id: doc.id, createdAt: DateTime.now());
-    await doc.set(t.toJson());
-
-    if (t.type == TransactionType.collaboratorPayment &&
-        t.collaboratorAssignmentId != null) {
-      final assignment = assignmentsOf(t.profileId)
-          .where((a) => a.id == t.collaboratorAssignmentId)
-          .toList();
-      if (assignment.isNotEmpty) {
-        final current = assignment.first;
-        await updateAssignment(current.copyWith(
-          paidAmount: current.paidAmount + t.amount,
-        ));
+    final eventDoc = profile.collection('timelineEvents').doc();
+    final event = TimelineEvent(
+      id: eventDoc.id,
+      profileId: t.profileId,
+      type: TimelineEventType.transaction,
+      message:
+          '${t.type.label}: ${t.amount}${t.note.isNotEmpty ? ' — ${t.note}' : ''}',
+      createdAt: t.createdAt,
+    );
+    await _db.runTransaction((tx) async {
+      // Stable document IDs across retries: never apply a payment twice.
+      final existing = await tx.get(doc);
+      if (existing.exists) {
+        throw const RepositoryException(
+          'Giao dịch này đã tồn tại. Vui lòng tải lại dữ liệu.',
+        );
       }
-    }
-    await _logEvent(t.profileId, TimelineEventType.transaction,
-        '${t.type.label}: ${t.amount}${t.note.isNotEmpty ? ' — ${t.note}' : ''}');
-    await _touchProfile(t.profileId);
+      DocumentReference<Map<String, dynamic>>? assignment;
+      if (t.type == TransactionType.collaboratorPayment &&
+          t.collaboratorAssignmentId != null) {
+        assignment = profile
+            .collection('collaboratorAssignments')
+            .doc(t.collaboratorAssignmentId);
+        final current = await tx.get(assignment);
+        if (!current.exists) {
+          throw const RepositoryException(
+            'Phân công cộng tác viên không còn tồn tại. Vui lòng tải lại dữ liệu.',
+          );
+        }
+      }
+      tx.set(doc, t.toJson());
+      if (assignment != null) {
+        tx.update(assignment, {
+          'paidAmount': FieldValue.increment(t.amount),
+          'updatedAt': t.createdAt.toIso8601String(),
+        });
+      }
+      tx.set(eventDoc, event.toJson());
+      tx.update(profile, {'updatedAt': t.createdAt.toIso8601String()});
+    });
     return t;
   }
 
   @override
   Future<void> deleteTransaction(String id) async {
     for (final entry in _transactions.entries) {
-      final match = entry.value.where((t) => t.id == id).toList();
-      if (match.isNotEmpty) {
-        final t = match.first;
-        await _profileDoc(entry.key).collection('transactions').doc(id).delete();
+      if (!entry.value.any((t) => t.id == id)) continue;
+      final profile = _profileDoc(entry.key);
+      final doc = profile.collection('transactions').doc(id);
+      await _db.runTransaction((tx) async {
+        // Read server state: a second device deleting the same payment is a no-op.
+        final existing = await tx.get(doc);
+        if (!existing.exists) return;
+        final t = MoneyTransaction.fromJson(existing.data()!);
+        DocumentReference<Map<String, dynamic>>? assignment;
+        num? newPaid;
         if (t.type == TransactionType.collaboratorPayment &&
             t.collaboratorAssignmentId != null) {
-          final assignment = assignmentsOf(t.profileId)
-              .where((a) => a.id == t.collaboratorAssignmentId)
-              .toList();
-          if (assignment.isNotEmpty) {
-            final current = assignment.first;
-            final newPaid = current.paidAmount - t.amount;
-            await updateAssignment(
-              current.copyWith(paidAmount: newPaid < 0 ? 0 : newPaid),
-            );
+          assignment = profile
+              .collection('collaboratorAssignments')
+              .doc(t.collaboratorAssignmentId);
+          final current = await tx.get(assignment);
+          if (current.exists) {
+            final remaining =
+                (current.data()!['paidAmount'] as num? ?? 0) - t.amount;
+            newPaid = remaining < 0 ? 0 : remaining;
           }
         }
-        return;
-      }
+        tx.delete(doc);
+        if (assignment != null && newPaid != null) {
+          tx.update(assignment, {
+            'paidAmount': newPaid,
+            'updatedAt': DateTime.now().toIso8601String(),
+          });
+        }
+      });
+      return;
     }
   }
-
   // ---------------------------------------------------------------------
   // Collaborator & Assignment
   // ---------------------------------------------------------------------
@@ -640,8 +808,11 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<CollaboratorAssignment> addAssignment(CollaboratorAssignment assignment) async {
-    final ref = _profileDoc(assignment.profileId).collection('collaboratorAssignments');
+  Future<CollaboratorAssignment> addAssignment(
+    CollaboratorAssignment assignment,
+  ) async {
+    final ref = _profileDoc(assignment.profileId)
+        .collection('collaboratorAssignments');
     final doc = assignment.id.isEmpty ? ref.doc() : ref.doc(assignment.id);
     final now = DateTime.now();
     final a = assignment.copyWith(id: doc.id, createdAt: now, updatedAt: now);
@@ -652,10 +823,11 @@ class FirebaseRepository extends AppRepository {
   @override
   Future<void> updateAssignment(CollaboratorAssignment assignment) async {
     final updated = assignment.copyWith(updatedAt: DateTime.now());
+    final fields = updated.toJson()..remove('paidAmount');
     await _profileDoc(assignment.profileId)
         .collection('collaboratorAssignments')
         .doc(assignment.id)
-        .set(updated.toJson());
+        .update(fields);
   }
 
   @override
@@ -687,16 +859,18 @@ class FirebaseRepository extends AppRepository {
       }
     }
     if (assignment == null) return;
-    await addTransaction(MoneyTransaction(
-      id: '',
-      profileId: assignment.profileId,
-      type: TransactionType.collaboratorPayment,
-      amount: amount,
-      date: date,
-      note: note,
-      createdAt: DateTime.now(),
-      collaboratorAssignmentId: assignmentId,
-    ));
+    await addTransaction(
+      MoneyTransaction(
+        id: '',
+        profileId: assignment.profileId,
+        type: TransactionType.collaboratorPayment,
+        amount: amount,
+        date: date,
+        note: note,
+        createdAt: DateTime.now(),
+        collaboratorAssignmentId: assignmentId,
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------
@@ -761,7 +935,11 @@ class FirebaseRepository extends AppRepository {
       note: task.note,
     );
     await doc.set(t.toJson());
-    await _logEvent(t.profileId, TimelineEventType.taskCreated, 'Tạo việc "${t.title}"');
+    await _logEvent(
+      t.profileId,
+      TimelineEventType.taskCreated,
+      'Tạo việc "${t.title}"',
+    );
     await _touchProfile(t.profileId);
     return t;
   }
@@ -777,8 +955,11 @@ class FirebaseRepository extends AppRepository {
     if (old != null &&
         old.status != updated.status &&
         updated.status == TaskStatus.completed) {
-      await _logEvent(updated.profileId, TimelineEventType.taskCompleted,
-          'Hoàn thành việc "${updated.title}"');
+      await _logEvent(
+        updated.profileId,
+        TimelineEventType.taskCompleted,
+        'Hoàn thành việc "${updated.title}"',
+      );
     }
     await _touchProfile(updated.profileId);
   }
@@ -798,11 +979,23 @@ class FirebaseRepository extends AppRepository {
     final task = _findTask(id);
     if (task == null) return;
     final now = DateTime.now();
-    await _profileDoc(task.profileId).collection('tasks').doc(id).set(
-          task.copyWith(status: TaskStatus.completed, completedAt: now, updatedAt: now).toJson(),
+    await _profileDoc(task.profileId)
+        .collection('tasks')
+        .doc(id)
+        .set(
+          task
+              .copyWith(
+                status: TaskStatus.completed,
+                completedAt: now,
+                updatedAt: now,
+              )
+              .toJson(),
         );
-    await _logEvent(task.profileId, TimelineEventType.taskCompleted,
-        'Hoàn thành việc "${task.title}"');
+    await _logEvent(
+      task.profileId,
+      TimelineEventType.taskCompleted,
+      'Hoàn thành việc "${task.title}"',
+    );
     await _touchProfile(task.profileId);
   }
 
@@ -825,7 +1018,10 @@ class FirebaseRepository extends AppRepository {
   }
 
   Future<void> _logEvent(
-      String profileId, TimelineEventType type, String message) async {
+    String profileId,
+    TimelineEventType type,
+    String message,
+  ) async {
     final ref = _profileDoc(profileId).collection('timelineEvents').doc();
     final event = TimelineEvent(
       id: ref.id,

@@ -141,32 +141,21 @@ flutter build web --release --base-href "/QuanLyCongViecApp/" --no-web-resources
 `web/index.html` giữ `$FLUTTER_BASE_HREF`; Flutter thay giá trị lúc build.
 Local development vẫn dùng `flutter run -d chrome` như trước.
 
-**Firebase Web chưa được cấu hình trong repository hiện tại.** Demo Mode
-vẫn dùng được; chỉ thêm Authorized Domain chưa đủ để bật đăng nhập Google.
-Xem các bước còn thiếu trong tài liệu deployment trước khi dùng Firebase thật.
+**Phase 1.4:** Firebase Web đã có client config cho `quanlycongviecapp-129de`.
+Web dùng Firebase Auth Google popup và Firestore theo UID. Demo vẫn hoạt động.
 
-## 4. Cấu hình Firebase (tùy chọn, để đồng bộ nhiều thiết bị)
+## 4. Firebase Auth và Firestore production
 
-Xem hướng dẫn chi tiết từng bước tại
-**[docs/firebase-setup.md](docs/firebase-setup.md)**. Tóm tắt:
+Xem **[docs/firebase-setup.md](docs/firebase-setup.md)** để xác minh Google
+provider, Authorized domains, deploy riêng Firestore rules và kiểm thử dữ liệu
+PC ↔ điện thoại. Google login và CRUD thật cần nghiệm thu bằng tài khoản thật.
 
-1. Tạo Firebase project tại https://console.firebase.google.com
-2. Cài FlutterFire CLI: `dart pub global activate flutterfire_cli`
-3. `firebase login`
-4. `flutterfire configure` (sinh ra `lib/firebase_options.dart` và các file
-   cấu hình native cho Android/iOS)
-5. Bật Google Sign-In trong Firebase Authentication
-6. Tạo Cloud Firestore (chế độ Production)
-7. Tạo Firebase Storage
-8. Deploy `firestore.rules` và `storage.rules` có sẵn trong repo:
-   ```bash
-   firebase deploy --only firestore:rules,storage:rules
-   ```
+```bash
+firebase deploy --only firestore:rules --project quanlycongviecapp-129de
+```
 
-Nếu Firebase **chưa** được cấu hình, ứng dụng vẫn chạy bình thường ở Demo
-Mode — nút "Đăng nhập bằng Google" sẽ báo lỗi tiếng Việt thân thiện thay vì
-làm crash ứng dụng.
-
+Firebase Storage hoãn sang phase khác; không bật Storage, không yêu cầu Blaze.
+Native Firebase production config chưa thuộc Phase 1.4.
 ## 5. Chạy trên Android
 
 ```bash

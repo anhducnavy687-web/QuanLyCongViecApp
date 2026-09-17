@@ -69,7 +69,7 @@ Future<void> _runLayoutCheck(WidgetTester tester, String sizeLabel) async {
     connectivityService: ConnectivityService(),
   ));
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pumpAndSettle();
   expect(tester.takeException(), isNull, reason: 'Dashboard ($sizeLabel)');
 
   // Nhóm / Lịch / Thống kê / Cài đặt — chuyển qua từng tab điều hướng
@@ -78,7 +78,7 @@ Future<void> _runLayoutCheck(WidgetTester tester, String sizeLabel) async {
   for (final label in ['Nhóm', 'Lịch', 'Thống kê', 'Cài đặt', 'Trang chủ']) {
     await tester.tap(find.text(label).last);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull, reason: '$label ($sizeLabel)');
   }
 
@@ -91,7 +91,7 @@ Future<void> _runLayoutCheck(WidgetTester tester, String sizeLabel) async {
   final overdueCard = find.ancestor(of: overdueText, matching: find.byType(ProfileCard));
   await tester.tap(overdueCard);
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pumpAndSettle();
   expect(tester.takeException(), isNull, reason: 'ProfileDetail mở ($sizeLabel)');
 
   // TabBar cuộn ngang (isScrollable: true) nên ở màn hình hẹp, các tab
@@ -103,7 +103,7 @@ Future<void> _runLayoutCheck(WidgetTester tester, String sizeLabel) async {
     await tester.pump();
     await tester.tap(tabFinder);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull, reason: 'ProfileDetail tab "$tabLabel" ($sizeLabel)');
 
     // Mở AddEditTaskScreen bằng Navigator.push trực tiếp thay vì mô
@@ -119,12 +119,12 @@ Future<void> _runLayoutCheck(WidgetTester tester, String sizeLabel) async {
         MaterialPageRoute(builder: (_) => AddEditTaskScreen(profileId: session.repository!.profiles.first.id)),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: 'AddEditTaskScreen ($sizeLabel)');
       expect(find.byType(AddEditTaskScreen), findsOneWidget);
       Navigator.of(tester.element(find.byType(AddEditTaskScreen))).pop();
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
     }
   }
 }
@@ -158,7 +158,7 @@ void main() {
         connectivityService: ConnectivityService(),
       ));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: 'Dashboard ban đầu (1440x900)');
 
       // Mở một hồ sơ TRƯỚC khi resize để có state điều hướng (route đã
@@ -168,14 +168,14 @@ void main() {
       final overdueCard = find.ancestor(of: overdueText, matching: find.byType(ProfileCard));
       await tester.tap(overdueCard);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
       expect(find.byType(ProfileDetailScreen), findsOneWidget, reason: 'Route ProfileDetail chưa mở trước khi resize');
 
       const sequence = [Size(1440, 900), Size(800, 1000), Size(430, 932), Size(390, 844), Size(1440, 900)];
       for (final size in sequence) {
         tester.view.physicalSize = size;
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: 'Đổi cỡ sang $size');
         // Không nhân đôi route: vẫn đúng MỘT ProfileDetailScreen sau mỗi
         // lần đổi cỡ (không bị build lại thành route mới / không mất

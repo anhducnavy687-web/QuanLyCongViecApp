@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/extensions/context_extensions.dart';
 import '../core/utils/money_utils.dart';
+import '../core/utils/repository_action.dart';
 import '../core/utils/validators.dart';
 import '../models/models.dart';
 import '../repositories/app_repository.dart';
@@ -25,7 +26,10 @@ class CollaboratorAssignmentSection extends StatelessWidget {
         onPressed: () => _showAssignDialog(context, repo),
       ),
       child: assignments.isEmpty
-          ? Text('Chưa gán cộng tác viên nào', style: context.textTheme.bodySmall)
+          ? Text(
+              'Chưa gán cộng tác viên nào',
+              style: context.textTheme.bodySmall,
+            )
           : Column(
               children: assignments.map((a) {
                 final collaborator = repo.collaboratorById(a.collaboratorId);
@@ -40,10 +44,17 @@ class CollaboratorAssignmentSection extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(collaborator?.name ?? 'Đã xóa',
-                                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                                Text(
+                                  collaborator?.name ?? 'Đã xóa',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                                 if (a.role.isNotEmpty)
-                                  Text(a.role, style: context.textTheme.bodySmall),
+                                  Text(
+                                    a.role,
+                                    style: context.textTheme.bodySmall,
+                                  ),
                               ],
                             ),
                           ),
@@ -57,8 +68,14 @@ class CollaboratorAssignmentSection extends StatelessWidget {
                               }
                             },
                             itemBuilder: (ctx) => const [
-                              PopupMenuItem(value: 'pay', child: Text('Trả hoa hồng')),
-                              PopupMenuItem(value: 'delete', child: Text('Gỡ khỏi hồ sơ')),
+                              PopupMenuItem(
+                                value: 'pay',
+                                child: Text('Trả hoa hồng'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Gỡ khỏi hồ sơ'),
+                              ),
                             ],
                           ),
                         ],
@@ -81,7 +98,10 @@ class CollaboratorAssignmentSection extends StatelessWidget {
   void _showAssignDialog(BuildContext context, AppRepository repo) {
     final collaborators = repo.collaborators;
     if (collaborators.isEmpty) {
-      context.showSnackBar('Chưa có cộng tác viên nào. Hãy thêm ở tab Cộng tác viên.', isError: true);
+      context.showSnackBar(
+        'Chưa có cộng tác viên nào. Hãy thêm ở tab Cộng tác viên.',
+        isError: true,
+      );
       return;
     }
     String? selectedId = collaborators.first.id;
@@ -110,7 +130,9 @@ class CollaboratorAssignmentSection extends StatelessWidget {
                 const SizedBox(height: 12),
                 TextField(
                   controller: roleCtrl,
-                  decoration: const InputDecoration(labelText: 'Vai trò (VD: Đo đạc, Hỗ trợ pháp lý...)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Vai trò (VD: Đo đạc, Hỗ trợ pháp lý...)',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -122,21 +144,31 @@ class CollaboratorAssignmentSection extends StatelessWidget {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
               onPressed: () {
                 final commission =
-                    num.tryParse(commissionCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+                    num.tryParse(
+                      commissionCtrl.text
+                          .replaceAll('.', '')
+                          .replaceAll(',', ''),
+                    ) ??
+                    0;
                 if (selectedId == null || commission < 0) return;
-                repo.addAssignment(CollaboratorAssignment(
-                  id: '',
-                  profileId: profileId,
-                  collaboratorId: selectedId!,
-                  role: roleCtrl.text.trim(),
-                  commissionAmount: commission,
-                  createdAt: DateTime.now(),
-                  updatedAt: DateTime.now(),
-                ));
+                repo.addAssignment(
+                  CollaboratorAssignment(
+                    id: '',
+                    profileId: profileId,
+                    collaboratorId: selectedId!,
+                    role: roleCtrl.text.trim(),
+                    commissionAmount: commission,
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  ),
+                );
                 Navigator.pop(ctx);
               },
               child: const Text('Lưu'),
@@ -147,55 +179,83 @@ class CollaboratorAssignmentSection extends StatelessWidget {
     );
   }
 
-  void _showPayDialog(BuildContext context, AppRepository repo, CollaboratorAssignment assignment) {
+  void _showPayDialog(
+    BuildContext context,
+    AppRepository repo,
+    CollaboratorAssignment assignment,
+  ) {
     final amountCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
+    bool saving = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Trả hoa hồng'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Còn phải trả: ${MoneyUtils.format(assignment.remainingAmount)}'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amountCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Số tiền trả (đ)'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Trả hoa hồng'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Còn phải trả: ${MoneyUtils.format(assignment.remainingAmount)}',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Số tiền trả (đ)'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteCtrl,
+                decoration: const InputDecoration(labelText: 'Ghi chú'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: noteCtrl,
-              decoration: const InputDecoration(labelText: 'Ghi chú'),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final amount = num.tryParse(
+                        amountCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+                      );
+                      if (amount == null) return;
+                      final newPaid = assignment.paidAmount + amount;
+                      final error = Validators.paidNotExceedingCommission(
+                        newPaid,
+                        assignment.commissionAmount,
+                      );
+                      if (error != null) {
+                        context.showSnackBar(error, isError: true);
+                        return;
+                      }
+                      setState(() => saving = true);
+                      final saved = await runRepositoryAction(
+                        context,
+                        () => repo.payCommission(
+                          assignmentId: assignment.id,
+                          amount: amount,
+                          date: DateTime.now(),
+                          note: noteCtrl.text.trim(),
+                        ),
+                      );
+                      if (!ctx.mounted) return;
+                      if (saved) {
+                        Navigator.pop(ctx);
+                      } else {
+                        setState(() => saving = false);
+                      }
+                    },
+              child: const Text('Lưu'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () {
-              final amount = num.tryParse(amountCtrl.text.replaceAll('.', '').replaceAll(',', ''));
-              if (amount == null) return;
-              final newPaid = assignment.paidAmount + amount;
-              final error = Validators.paidNotExceedingCommission(newPaid, assignment.commissionAmount);
-              if (error != null) {
-                context.showSnackBar(error, isError: true);
-                return;
-              }
-              repo.payCommission(
-                assignmentId: assignment.id,
-                amount: amount,
-                date: DateTime.now(),
-                note: noteCtrl.text.trim(),
-              );
-              Navigator.pop(ctx);
-            },
-            child: const Text('Lưu'),
-          ),
-        ],
       ),
     );
   }

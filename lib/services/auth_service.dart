@@ -33,6 +33,10 @@ abstract class AuthService extends ChangeNotifier {
 
   bool get isAvailable;
 
+  String? get initializationError;
+  Future<void> ensureInitialized();
+  Stream<AppUser?> authStateChanges();
+
   /// Thử khôi phục phiên đăng nhập đã lưu trước đó (nếu có).
   Future<AppUser?> restoreSession();
 

@@ -1,3 +1,5 @@
+import '../../core/utils/repository_action.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -79,63 +81,66 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     final repo = context.read<AppRepository>();
-    final now = DateTime.now();
+    final saved = await runRepositoryAction(context, () async {
+      final now = DateTime.now();
 
-    if (_status == TaskStatus.waiting) {
-      _waitingSince ??= now;
-    }
+      if (_status == TaskStatus.waiting) {
+        _waitingSince ??= now;
+      }
 
-    if (_isEdit) {
-      await repo.updateTask(
-        widget.task!.copyWith(
-          title: _titleCtrl.text.trim(),
-          description: _descCtrl.text.trim(),
-          status: _status,
-          priority: _priority,
-          dueDate: _dueDate,
-          clearDueDate: _dueDate == null,
-          waitingReason: _status == TaskStatus.waiting
-              ? _waitingReasonCtrl.text.trim()
-              : null,
-          clearWaitingReason: _status != TaskStatus.waiting,
-          waitingSince: _status == TaskStatus.waiting ? _waitingSince : null,
-          clearWaitingSince: _status != TaskStatus.waiting,
-          expectedResponseDate: _status == TaskStatus.waiting
-              ? _expectedResponseDate
-              : null,
-          clearExpectedResponseDate: _status != TaskStatus.waiting,
-          completedAt: _status == TaskStatus.completed ? now : null,
-          clearCompletedAt: _status != TaskStatus.completed,
-          note: _noteCtrl.text.trim(),
-        ),
-      );
-    } else {
-      await repo.addTask(
-        TaskItem(
-          id: '',
-          profileId: widget.profileId,
-          title: _titleCtrl.text.trim(),
-          description: _descCtrl.text.trim(),
-          status: _status,
-          priority: _priority,
-          dueDate: _dueDate,
-          waitingReason: _status == TaskStatus.waiting
-              ? _waitingReasonCtrl.text.trim()
-              : null,
-          waitingSince: _status == TaskStatus.waiting
-              ? (_waitingSince ?? now)
-              : null,
-          expectedResponseDate: _status == TaskStatus.waiting
-              ? _expectedResponseDate
-              : null,
-          createdAt: now,
-          updatedAt: now,
-          note: _noteCtrl.text.trim(),
-        ),
-      );
-    }
-
-    if (mounted) Navigator.pop(context);
+      if (_isEdit) {
+        await repo.updateTask(
+          widget.task!.copyWith(
+            title: _titleCtrl.text.trim(),
+            description: _descCtrl.text.trim(),
+            status: _status,
+            priority: _priority,
+            dueDate: _dueDate,
+            clearDueDate: _dueDate == null,
+            waitingReason: _status == TaskStatus.waiting
+                ? _waitingReasonCtrl.text.trim()
+                : null,
+            clearWaitingReason: _status != TaskStatus.waiting,
+            waitingSince: _status == TaskStatus.waiting ? _waitingSince : null,
+            clearWaitingSince: _status != TaskStatus.waiting,
+            expectedResponseDate: _status == TaskStatus.waiting
+                ? _expectedResponseDate
+                : null,
+            clearExpectedResponseDate: _status != TaskStatus.waiting,
+            completedAt: _status == TaskStatus.completed ? now : null,
+            clearCompletedAt: _status != TaskStatus.completed,
+            note: _noteCtrl.text.trim(),
+          ),
+        );
+      } else {
+        await repo.addTask(
+          TaskItem(
+            id: '',
+            profileId: widget.profileId,
+            title: _titleCtrl.text.trim(),
+            description: _descCtrl.text.trim(),
+            status: _status,
+            priority: _priority,
+            dueDate: _dueDate,
+            waitingReason: _status == TaskStatus.waiting
+                ? _waitingReasonCtrl.text.trim()
+                : null,
+            waitingSince: _status == TaskStatus.waiting
+                ? (_waitingSince ?? now)
+                : null,
+            expectedResponseDate: _status == TaskStatus.waiting
+                ? _expectedResponseDate
+                : null,
+            createdAt: now,
+            updatedAt: now,
+            note: _noteCtrl.text.trim(),
+          ),
+        );
+      }
+    });
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (saved) Navigator.pop(context);
   }
 
   @override

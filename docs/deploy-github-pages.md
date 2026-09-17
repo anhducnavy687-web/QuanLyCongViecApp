@@ -74,47 +74,21 @@ không coi app có deep linking tới từng hồ sơ.
 Sau deploy, kiểm tra vào Demo, mở hồ sơ, Back, refresh, các tab và resize ở
 390×844, 768×1024, 1440×900; kiểm tra thêm trên Safari/iPhone thật nếu có thiết bị.
 
-## Firebase và Google Sign-In: các bước chưa được thực hiện tự động
+## Firebase Auth và Firestore — Phase 1.4
 
-Firebase Console → **Authentication → Settings → Authorized domains** → thêm:
+Web sử dụng `lib/firebase_options.dart` của project `quanlycongviecapp-129de`.
+File này là config client công khai và được đưa vào build từ repository, không
+cần inject secret trong Actions. Không đưa private key/client secret vào build.
 
-```text
-anhducnavy687-web.github.io
-```
+Google login dùng Firebase Auth popup; Authorized domains phải có
+`anhducnavy687-web.github.io`. Không cần meta Google client ID hoặc People API.
+Firestore giữ schema `users/{uid}/...`; rules được deploy riêng bằng Firebase
+CLI, không do workflow Pages deploy. Storage hoãn sang phase khác, không Blaze.
 
-Không thêm `https://` hoặc `/QuanLyCongViecApp/` vào Authorized domains.
-
-**Repository hiện chưa cấu hình Firebase Web**: không có firebase_options.dart;
-`FirebaseAuthService` gọi `Firebase.initializeApp()` không truyền options,
-và web/index.html chưa khai báo Google OAuth client ID. Demo Mode vẫn hoạt động,
-nhưng thêm domain đơn thuần chưa đủ để đăng nhập thật. Phase 1.3 giữ code này,
-không tự tạo Firebase project hay bịa cấu hình tài khoản.
-
-Để bật Firebase thật, chủ project cần hoàn tất và kiểm thử riêng:
-
-1. Firebase Console → Project settings → Your apps: đăng ký/chọn Web app của
-   đúng Firebase project; chạy `flutterfire configure` và chọn Web (giữ các
-   native targets đang dùng). Dùng options được sinh ra với
-   `Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)`
-   trong FirebaseAuthService theo [firebase-setup.md](firebase-setup.md).
-2. Authentication → Sign-in method → bật Google; thêm Authorized Domain trên.
-3. Với implementation `google_sign_in` hiện tại: cấu hình Web OAuth client ID
-   theo google_sign_in_web (meta `google-signin-client_id` trong web/index.html
-   hoặc clientId trong code). Với lời gọi `GoogleSignIn.signIn()` hiện tại,
-   bật **Google People API** trong Google Cloud Console → APIs & Services →
-   Library; plugin dùng API này để lấy thông tin người dùng trên Web.
-   Google Cloud Console → APIs & Services →
-   Credentials → OAuth 2.0 Client IDs → Web client → Authorized JavaScript
-   origins: thêm `https://anhducnavy687-web.github.io` (không thêm subpath).
-   Hoàn tất OAuth consent screen/test users nếu project còn ở chế độ testing.
-4. Kiểm thử đăng nhập, đăng xuất, Firestore/Storage và UID isolation bằng tài
-   khoản thật. Không nới rules để chữa lỗi đăng nhập. Không đưa service account,
-   private key hoặc client secret vào Web build/repository. Firebase client
-   options/OAuth client ID không phải server-side secret.
-
-Không có thay đổi đối với FirebaseRepository, DemoRepository, Firestore rules,
-Storage rules hoặc đường dẫn dữ liệu theo UID trong phase deployment này.
-
+Xem [firebase-setup.md](firebase-setup.md) để login CLI, deploy riêng rules và
+nghiệm thu Google login/Firestore CRUD/PC ↔ điện thoại bằng tài khoản thật.
+Push branch `claude/stoic-goldberg-qcky72` sẽ kích hoạt production deployment;
+chỉ push sau analyze, tests và release build thành công.
 ## Ngừng Netlify
 
 `netlify.toml` được loại bỏ, hướng dẫn Netlify cũ chuyển thành thông báo legacy.

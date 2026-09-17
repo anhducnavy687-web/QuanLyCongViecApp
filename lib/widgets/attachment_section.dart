@@ -27,6 +27,12 @@ class _AttachmentSectionState extends State<AttachmentSection> {
   bool _busy = false;
 
   Future<void> _addFrom(Future<PickedFileResult?> Function() picker) async {
+    if (context.read<AppRepository>() is FirebaseRepository) {
+      context.showSnackBar(
+        'Tải tài liệu lên đám mây chưa được hỗ trợ trong phiên bản này.',
+      );
+      return;
+    }
     setState(() => _busy = true);
     final repo = context.read<AppRepository>();
     try {
@@ -37,7 +43,8 @@ class _AttachmentSectionState extends State<AttachmentSection> {
       String? storagePath;
       if (repo is FirebaseRepository) {
         final uid = repo.uid;
-        storagePath = 'users/$uid/profiles/${widget.profileId}/attachments/$id-${picked.fileName}';
+        storagePath =
+            'users/$uid/profiles/${widget.profileId}/attachments/$id-${picked.fileName}';
         pathOrUrl = await _uploadService.uploadAttachment(
           uid: uid,
           profileId: widget.profileId,
@@ -46,22 +53,26 @@ class _AttachmentSectionState extends State<AttachmentSection> {
           fileName: picked.fileName,
         );
       }
-      final ext = picked.fileName.contains('.') ? picked.fileName.split('.').last : '';
-      await repo.addAttachment(Attachment(
-        id: id,
-        profileId: widget.profileId,
-        fileName: picked.fileName,
-        type: AttachmentType.fromExtension(ext),
-        localPathOrUrl: pathOrUrl,
-        storagePath: storagePath,
-        sizeBytes: picked.sizeBytes,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ));
+      final ext = picked.fileName.contains('.')
+          ? picked.fileName.split('.').last
+          : '';
+      await repo.addAttachment(
+        Attachment(
+          id: id,
+          profileId: widget.profileId,
+          fileName: picked.fileName,
+          type: AttachmentType.fromExtension(ext),
+          localPathOrUrl: pathOrUrl,
+          storagePath: storagePath,
+          sizeBytes: picked.sizeBytes,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
     } on FileServiceException catch (e) {
-      if (context.mounted) context.showSnackBar(e.message, isError: true);
+      if (mounted) context.showSnackBar(e.message, isError: true);
     } catch (e) {
-      if (context.mounted) context.showSnackBar('Đã xảy ra lỗi: $e', isError: true);
+      if (mounted) context.showSnackBar('Đã xảy ra lỗi: $e', isError: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -111,7 +122,10 @@ class _AttachmentSectionState extends State<AttachmentSection> {
         title: const Text('Đổi tên file'),
         content: TextField(controller: ctrl, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             child: const Text('Lưu'),
@@ -157,54 +171,82 @@ class _AttachmentSectionState extends State<AttachmentSection> {
       title: 'Tài liệu / File đính kèm',
       trailing: IconButton(
         icon: _busy
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             : const Icon(Icons.add_rounded),
         onPressed: _busy ? null : _showAddOptions,
       ),
       child: attachments.isEmpty
           ? Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text('Chưa có file nào', style: context.textTheme.bodySmall),
+              child: Text(
+                'Chưa có file nào',
+                style: context.textTheme.bodySmall,
+              ),
             )
           : Column(
               children: attachments
-                  .map((att) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(_iconFor(att.type), color: context.colors.primary),
-                        title: Text(att.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(_formatSize(att.sizeBytes)),
-                        onTap: () async {
-                          try {
-                            await _fileService.openFile(att.localPathOrUrl);
-                          } on FileServiceException catch (e) {
-                            if (context.mounted) context.showSnackBar(e.message, isError: true);
+                  .map(
+                    (att) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        _iconFor(att.type),
+                        color: context.colors.primary,
+                      ),
+                      title: Text(
+                        att.fileName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(_formatSize(att.sizeBytes)),
+                      onTap: () async {
+                        try {
+                          await _fileService.openFile(att.localPathOrUrl);
+                        } on FileServiceException catch (e) {
+                          if (context.mounted) {
+                            context.showSnackBar(e.message, isError: true);
+                          }
+                        }
+                      },
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (value) async {
+                          switch (value) {
+                            case 'rename':
+                              await _rename(att);
+                              break;
+                            case 'share':
+                              try {
+                                await _fileService.shareFile(
+                                  att.localPathOrUrl,
+                                );
+                              } on FileServiceException catch (e) {
+                                if (context.mounted) {
+                                  context.showSnackBar(
+                                    e.message,
+                                    isError: true,
+                                  );
+                                }
+                              }
+                              break;
+                            case 'delete':
+                              await repo.deleteAttachment(att.id);
+                              break;
                           }
                         },
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (value) async {
-                            switch (value) {
-                              case 'rename':
-                                await _rename(att);
-                                break;
-                              case 'share':
-                                try {
-                                  await _fileService.shareFile(att.localPathOrUrl);
-                                } on FileServiceException catch (e) {
-                                  if (context.mounted) context.showSnackBar(e.message, isError: true);
-                                }
-                                break;
-                              case 'delete':
-                                await repo.deleteAttachment(att.id);
-                                break;
-                            }
-                          },
-                          itemBuilder: (ctx) => const [
-                            PopupMenuItem(value: 'rename', child: Text('Đổi tên')),
-                            PopupMenuItem(value: 'share', child: Text('Chia sẻ')),
-                            PopupMenuItem(value: 'delete', child: Text('Xóa')),
-                          ],
-                        ),
-                      ))
+                        itemBuilder: (ctx) => const [
+                          PopupMenuItem(
+                            value: 'rename',
+                            child: Text('Đổi tên'),
+                          ),
+                          PopupMenuItem(value: 'share', child: Text('Chia sẻ')),
+                          PopupMenuItem(value: 'delete', child: Text('Xóa')),
+                        ],
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
     );

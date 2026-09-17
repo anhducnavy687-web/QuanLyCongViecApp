@@ -1,130 +1,101 @@
-# Hướng dẫn cấu hình Firebase
+# Firebase production — Phase 1.4
 
-Ứng dụng chạy tốt ở **Demo Mode** mà không cần bước nào dưới đây. Chỉ làm
-theo hướng dẫn này khi muốn bật đăng nhập Google thật và đồng bộ dữ liệu
-nhiều thiết bị qua Firebase.
+## Project và hosting
 
-## 1. Tạo Firebase project
+- Firebase project: `quanlycongviecapp-129de`.
+- Firebase Web App: `1:957843233910:web:e23b136aff578073d09357`.
+- Firestore Standard, database `(default)`.
+- Production: https://anhducnavy687-web.github.io/QuanLyCongViecApp/
+- Hosting duy nhất: GitHub Pages; không Firebase Hosting hoặc Netlify.
 
-1. Vào https://console.firebase.google.com
-2. **Add project** → đặt tên (VD: `quanlycongviecapp`) → hoàn tất wizard.
+## Khởi tạo Web
 
-## 2. Cài FlutterFire CLI
+`lib/firebase_options.dart` chứa FirebaseOptions của Web App đã đăng ký.
+`FirebaseAuthService` truyền options khi khởi tạo Web. Không thêm Firebase JS
+SDK thủ công vào HTML, không cần npm firebase. Config là định danh client công
+khai, không phải service-account/private key/OAuth client secret.
 
-```bash
-dart pub global activate flutterfire_cli
-```
+Native vẫn thử cấu hình mặc định của nền tảng và giữ Google Sign-In hiện có.
+Phase này không đăng ký native app, không cung cấp native production config.
+Nếu native chưa cấu hình Firebase, Demo vẫn dùng được.
 
-Đảm bảo `$HOME/.pub-cache/bin` nằm trong `PATH`.
+## Google Authentication
 
-## 3. Đăng nhập Firebase CLI
+Firebase Console → Authentication → Sign-in method: bật Google.
+Authorized domains phải có `anhducnavy687-web.github.io` (không protocol/path).
+Để kiểm thử local, kiểm tra `localhost` cũng được cho phép; không giả định nó
+đã được thêm tự động.
 
-Cần cài Firebase CLI trước (nếu chưa có):
+Web gọi `FirebaseAuth.signInWithPopup(GoogleAuthProvider())`, không dùng
+`GoogleSignIn.signIn()` hoặc People API. Giữ authDomain của config:
+`quanlycongviecapp-129de.firebaseapp.com`. Không đổi authDomain thành domain
+GitHub Pages vì Pages không phục vụ Firebase auth helper tại `/__/auth/`.
 
-```bash
-npm install -g firebase-tools
+Popup phải bắt đầu từ nút bấm. Nếu trình duyệt chặn popup, cho phép popup và
+bấm lại. Hủy popup, domain chưa được cấp quyền, mạng lỗi được báo bằng tiếng
+Việt. Không tự fallback redirect: redirect cross-domain có giới hạn third-party
+storage, cần thiết kế/kiểm thử riêng nếu bổ sung sau này.
+
+Firebase khôi phục phiên qua sự kiện auth đầu tiên. Session theo dõi thay đổi
+UID, hủy repository/listeners cũ trước khi thay, và bỏ kết quả tải đã lỗi thời.
+
+## Firestore và rules
+
+Dữ liệu giữ nguyên dưới `users/{uid}/...`; UID lấy từ Firebase Authentication.
+`firestore.rules` cho chủ UID truy cập các collection đã khai báo, từ chối user
+khác, user chưa đăng nhập và mọi đường dẫn ngoài schema. Rules chưa xác thực
+schema field; phase này không thay schema/rules để mở quyền rộng hơn.
+
+`firebase.json` chỉ cấu hình Firestore rules. `.firebaserc` trỏ đúng project.
+Sau khi có Firebase CLI và đăng nhập tài khoản có quyền:
+
+```powershell
 firebase login
+firebase deploy --only firestore:rules --project quanlycongviecapp-129de
 ```
 
-## 4. Chạy FlutterFire configure
+Nếu dùng CLI qua npx: `npx --yes firebase-tools` thay cho `firebase`.
+Không chạy deploy tất cả services. Không deploy Storage rules.
+Sau deploy, đối chiếu Rules đang publish trong Firebase Console với file repo
+(hoặc đọc Firebase Rules API release `cloud.firestore` và đối chiếu nội dung).
 
-Tại thư mục gốc dự án:
+Repository chờ snapshot đầu tiên từ server, gồm subcollections của hồ sơ ban
+đầu. Cache offline rỗng không được coi là dữ liệu server rỗng. Timeout/lỗi quyền
+hiển thị lỗi và cho retry. Listener lỗi sau đăng nhập chặn màn hình dữ liệu cũ
+và có nút tải lại/đăng xuất. Snapshot listeners bị hủy khi repository dispose.
 
-```bash
-flutterfire configure
-```
+Thanh toán cộng tác viên ghi transaction, timeline và tăng paidAmount trong
+cùng Firestore transaction. Xóa thanh toán đọc document server trước khi trừ,
+tránh trừ hai lần. Chỉnh thông tin phân công không ghi đè paidAmount từ cache.
+Firestore transaction cần kết nối mạng; thao tác thất bại cần thử lại.
 
-- Chọn Firebase project vừa tạo.
-- Chọn nền tảng cần cấu hình (Android, iOS).
-- Lệnh này tự sinh:
-  - `lib/firebase_options.dart`
-  - `android/app/google-services.json`
-  - `ios/Runner/GoogleService-Info.plist`
+## Storage deferred
 
-`lib/firebase_options.dart` **không được commit kèm secret thật lên repo
-công khai** nếu dự án là mã nguồn mở — cân nhắc thêm vào `.gitignore` nếu
-cần, tuỳ chính sách bảo mật của bạn (các key trong file này là định danh
-client, không phải secret server, nhưng vẫn nên hạn chế commit tùy ngữ
-cảnh dự án).
+Firebase Storage chưa bật, không nâng Blaze hoặc cấu hình billing trong Phase
+1.4. Firebase Mode thông báo chưa hỗ trợ tải tài liệu. Demo giữ hành vi cũ.
+Các file/package Storage có sẵn không có nghĩa Storage production đã hoạt động.
 
-> Dự án này gọi `Firebase.initializeApp()` **không** truyền `options`
-> tường minh trong `FirebaseAuthService.ensureInitialized()`. Sau khi chạy
-> `flutterfire configure`, hãy sửa lời gọi đó thành
-> `Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)`
-> (import `firebase_options.dart`) để đảm bảo đúng project trên mọi nền
-> tảng.
+## Kiểm thử PC ↔ điện thoại
 
-## 5. Bật Google Sign-In
+1. Mở URL production trên PC và trình duyệt điện thoại; đăng nhập cùng Google.
+2. Xác nhận cùng UID trong Firebase Authentication và đường dẫn `users/{uid}`.
+3. Tạo nhóm/hồ sơ/công việc trên PC, xem trên điện thoại; sửa ngược lại.
+4. Reload, đóng/mở lại tab; kiểm tra phiên và dữ liệu vẫn đúng.
+5. Hai thiết bị cùng thêm thanh toán CTV; tổng paidAmount phải bằng lịch sử tiền.
+6. Xóa một thanh toán, kiểm tra tổng giảm đúng một lần.
+7. Đăng xuất rồi đổi tài khoản B: không còn dữ liệu A. Kiểm thử rules từ chối
+   đọc/ghi UID khác, không chỉ dựa vào việc UI ẩn dữ liệu.
+8. Thử hủy/chặn popup, mất mạng, quyền bị từ chối, retry; Demo vẫn mở được.
+9. Kiểm tra 390×844, 768×1024, 1440×900; production không có MobilePreviewFrame.
 
-Trong Firebase Console → **Authentication** → **Sign-in method** → bật
-**Google** → lưu.
+Tests trong repo dùng SDK mocks/FakeFirestore cho auth, session, listener,
+đồng thời và rules document access (inline hai helper được kiểm tra nguyên văn vì fake parser không hỗ trợ function). Chúng không thay thế Google login thật,
+Firestore production CRUD, transaction contention server hoặc rules query test.
+Không đánh dấu các bước production này thành công chỉ vì unit tests pass.
 
-### Android
+## Tài liệu chính thức
 
-- Thêm SHA-1 (và SHA-256 nếu dùng App Check/Play Integrity) của keystore
-  debug/release vào **Project settings → Your apps → Android app**:
-  ```bash
-  keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
-  ```
-- Tải lại `google-services.json` mới nhất sau khi thêm SHA nếu cần.
-
-### iOS
-
-- Đảm bảo `GoogleService-Info.plist` đã được thêm vào target Runner qua
-  Xcode (kéo thả file vào project, tick "Copy items if needed").
-- Thêm URL scheme (`REVERSED_CLIENT_ID` trong file plist) vào
-  `ios/Runner/Info.plist` dưới `CFBundleURLTypes` (FlutterFire CLI thường
-  tự làm bước này).
-
-## 6. Tạo Cloud Firestore
-
-Firebase Console → **Firestore Database** → **Create database** → chọn
-**Production mode** (rules mặc định từ chối tất cả — an toàn hơn) → chọn
-region gần người dùng.
-
-## 7. Tạo Firebase Storage
-
-Firebase Console → **Storage** → **Get started** → chọn cùng region với
-Firestore nếu có thể.
-
-## 8 & 9. Cấu hình Android / iOS (đã làm ở bước 4)
-
-`flutterfire configure` đã cấu hình cả 2 nền tảng. Kiểm tra thêm:
-
-- Android: `android/app/build.gradle.kts` (hoặc `.gradle`) đã áp dụng
-  plugin `com.google.gms.google-services` (FlutterFire CLI tự thêm).
-- iOS: build thử một lần trên Xcode để chắc chắn plist được nhúng đúng
-  target.
-
-## 10. Deploy Firestore Rules
-
-```bash
-firebase deploy --only firestore:rules
-```
-
-Sử dụng file [`firestore.rules`](../firestore.rules) có sẵn ở gốc repo —
-đã tuân thủ nguyên tắc mỗi người dùng chỉ truy cập được dữ liệu của chính
-mình, không có `allow read, write: if true`.
-
-## 11. Deploy Storage Rules
-
-```bash
-firebase deploy --only storage:rules
-```
-
-Sử dụng file [`storage.rules`](../storage.rules) có sẵn ở gốc repo.
-
-> Nếu đây là lần đầu dùng `firebase deploy` trong thư mục này, chạy
-> `firebase init` trước để tạo `firebase.json` liên kết `firestore.rules`
-> và `storage.rules` với project, hoặc dùng cờ
-> `--project <project-id>` khi deploy nếu chưa có `.firebaserc`.
-
-## Kiểm tra sau khi cấu hình
-
-1. Chạy `flutter run`.
-2. Ở Login, nhấn **Đăng nhập bằng Google** — nếu mọi thứ đúng, popup chọn
-   tài khoản Google hiện ra và sau khi đăng nhập, app chuyển sang Home với
-   dữ liệu rỗng (project Firestore mới chưa có dữ liệu).
-3. Thử tạo một Nhóm công việc và một Hồ sơ — kiểm tra trong Firebase
-   Console → Firestore Database xem document đã xuất hiện đúng đường dẫn
-   `users/{uid}/groups/...` và `users/{uid}/profiles/...` chưa.
+- https://firebase.google.com/docs/flutter/setup
+- https://firebase.google.com/docs/auth/flutter/federated-auth
+- https://firebase.google.com/docs/auth/web/redirect-best-practices
+- https://firebase.google.com/docs/firestore/manage-data/transactions

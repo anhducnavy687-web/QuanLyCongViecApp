@@ -2,6 +2,13 @@ import 'package:flutter/foundation.dart';
 
 import '../models/models.dart';
 
+class RepositoryException implements Exception {
+  const RepositoryException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 /// Interface chung cho tầng dữ liệu của ứng dụng.
 ///
 /// Mọi màn hình UI chỉ được làm việc thông qua [AppRepository] — không bao
@@ -21,6 +28,8 @@ abstract class AppRepository extends ChangeNotifier {
   Future<void> init();
 
   bool get isReady;
+
+  String? get syncError => null;
 
   /// true nếu đây là repository chạy ở Demo Mode (không cần đăng nhập).
   bool get isDemoMode;
@@ -107,7 +116,9 @@ abstract class AppRepository extends ChangeNotifier {
   Future<void> updateCollaborator(Collaborator collaborator);
   Future<void> deleteCollaborator(String id);
 
-  Future<CollaboratorAssignment> addAssignment(CollaboratorAssignment assignment);
+  Future<CollaboratorAssignment> addAssignment(
+    CollaboratorAssignment assignment,
+  );
   Future<void> updateAssignment(CollaboratorAssignment assignment);
   Future<void> deleteAssignment(String id);
 

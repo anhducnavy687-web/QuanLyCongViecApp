@@ -1,3 +1,5 @@
+import '../../core/utils/repository_action.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -39,22 +41,33 @@ class _AddEditGroupSheetState extends State<AddEditGroupSheet> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     final repo = context.read<AppRepository>();
-    if (widget.group == null) {
-      await repo.addGroup(name: _nameCtrl.text.trim(), description: _descCtrl.text.trim());
-    } else {
-      await repo.updateGroup(widget.group!.copyWith(
-        name: _nameCtrl.text.trim(),
-        description: _descCtrl.text.trim(),
-      ));
-    }
-    if (mounted) Navigator.pop(context);
+    final saved = await runRepositoryAction(context, () async {
+      if (widget.group == null) {
+        await repo.addGroup(
+          name: _nameCtrl.text.trim(),
+          description: _descCtrl.text.trim(),
+        );
+      } else {
+        await repo.updateGroup(
+          widget.group!.copyWith(
+            name: _nameCtrl.text.trim(),
+            description: _descCtrl.text.trim(),
+          ),
+        );
+      }
+    });
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (saved) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.group != null;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -66,7 +79,9 @@ class _AddEditGroupSheetState extends State<AddEditGroupSheet> {
               children: [
                 Text(
                   isEdit ? 'Sửa nhóm công việc' : 'Thêm nhóm công việc',
-                  style: context.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: context.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -78,7 +93,9 @@ class _AddEditGroupSheetState extends State<AddEditGroupSheet> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _descCtrl,
-                  decoration: const InputDecoration(labelText: 'Mô tả (không bắt buộc)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Mô tả (không bắt buộc)',
+                  ),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 20),
@@ -86,7 +103,10 @@ class _AddEditGroupSheetState extends State<AddEditGroupSheet> {
                   onPressed: _saving ? null : _save,
                   child: _saving
                       ? const SizedBox(
-                          width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text('Lưu'),
                 ),
               ],

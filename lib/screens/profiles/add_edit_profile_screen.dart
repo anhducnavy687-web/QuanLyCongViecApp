@@ -1,3 +1,5 @@
+import '../../core/utils/repository_action.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -129,67 +131,70 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
 
     setState(() => _saving = true);
     final repo = context.read<AppRepository>();
-    final amount =
-        num.tryParse(
-          _amountCtrl.text.replaceAll('.', '').replaceAll(',', ''),
-        ) ??
-        0;
-    final now = DateTime.now();
-    final isWaiting = _status == ProfileStatus.waiting;
-    if (isWaiting) {
-      _waitingSince ??= now;
-    }
+    final saved = await runRepositoryAction(context, () async {
+      final amount =
+          num.tryParse(
+            _amountCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+          ) ??
+          0;
+      final now = DateTime.now();
+      final isWaiting = _status == ProfileStatus.waiting;
+      if (isWaiting) {
+        _waitingSince ??= now;
+      }
 
-    if (_isEdit) {
-      await repo.updateProfile(
-        widget.profile!.copyWith(
-          groupId: _groupId!,
-          fullName: _nameCtrl.text.trim(),
-          phone: _phoneCtrl.text.trim(),
-          workTarget: _workTargetCtrl.text.trim(),
-          description: _descCtrl.text.trim(),
-          startDate: _startDate,
-          deadline: _hasDeadline ? _deadline : null,
-          hasDeadline: _hasDeadline,
-          status: _status,
-          totalAmount: amount,
-          note: _noteCtrl.text.trim(),
-          clearDeadline: !_hasDeadline,
-          completedAt: _status == ProfileStatus.completed ? now : null,
-          clearCompletedAt: _status != ProfileStatus.completed,
-          waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
-          clearWaitingReason: !isWaiting,
-          waitingSince: isWaiting ? _waitingSince : null,
-          clearWaitingSince: !isWaiting,
-          expectedResponseDate: isWaiting ? _expectedResponseDate : null,
-          clearExpectedResponseDate: !isWaiting,
-        ),
-      );
-    } else {
-      await repo.addProfile(
-        Profile(
-          id: '',
-          groupId: _groupId!,
-          fullName: _nameCtrl.text.trim(),
-          phone: _phoneCtrl.text.trim(),
-          workTarget: _workTargetCtrl.text.trim(),
-          description: _descCtrl.text.trim(),
-          startDate: _startDate,
-          deadline: _hasDeadline ? _deadline : null,
-          hasDeadline: _hasDeadline,
-          status: _status,
-          totalAmount: amount,
-          note: _noteCtrl.text.trim(),
-          createdAt: now,
-          updatedAt: now,
-          waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
-          waitingSince: isWaiting ? _waitingSince : null,
-          expectedResponseDate: isWaiting ? _expectedResponseDate : null,
-        ),
-      );
-    }
-
-    if (mounted) Navigator.pop(context);
+      if (_isEdit) {
+        await repo.updateProfile(
+          widget.profile!.copyWith(
+            groupId: _groupId!,
+            fullName: _nameCtrl.text.trim(),
+            phone: _phoneCtrl.text.trim(),
+            workTarget: _workTargetCtrl.text.trim(),
+            description: _descCtrl.text.trim(),
+            startDate: _startDate,
+            deadline: _hasDeadline ? _deadline : null,
+            hasDeadline: _hasDeadline,
+            status: _status,
+            totalAmount: amount,
+            note: _noteCtrl.text.trim(),
+            clearDeadline: !_hasDeadline,
+            completedAt: _status == ProfileStatus.completed ? now : null,
+            clearCompletedAt: _status != ProfileStatus.completed,
+            waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
+            clearWaitingReason: !isWaiting,
+            waitingSince: isWaiting ? _waitingSince : null,
+            clearWaitingSince: !isWaiting,
+            expectedResponseDate: isWaiting ? _expectedResponseDate : null,
+            clearExpectedResponseDate: !isWaiting,
+          ),
+        );
+      } else {
+        await repo.addProfile(
+          Profile(
+            id: '',
+            groupId: _groupId!,
+            fullName: _nameCtrl.text.trim(),
+            phone: _phoneCtrl.text.trim(),
+            workTarget: _workTargetCtrl.text.trim(),
+            description: _descCtrl.text.trim(),
+            startDate: _startDate,
+            deadline: _hasDeadline ? _deadline : null,
+            hasDeadline: _hasDeadline,
+            status: _status,
+            totalAmount: amount,
+            note: _noteCtrl.text.trim(),
+            createdAt: now,
+            updatedAt: now,
+            waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
+            waitingSince: isWaiting ? _waitingSince : null,
+            expectedResponseDate: isWaiting ? _expectedResponseDate : null,
+          ),
+        );
+      }
+    });
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (saved) Navigator.pop(context);
   }
 
   @override

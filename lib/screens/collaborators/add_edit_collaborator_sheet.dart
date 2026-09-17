@@ -1,3 +1,5 @@
+import '../../core/utils/repository_action.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,7 +13,8 @@ class AddEditCollaboratorSheet extends StatefulWidget {
   const AddEditCollaboratorSheet({super.key, this.collaborator});
 
   @override
-  State<AddEditCollaboratorSheet> createState() => _AddEditCollaboratorSheetState();
+  State<AddEditCollaboratorSheet> createState() =>
+      _AddEditCollaboratorSheetState();
 }
 
 class _AddEditCollaboratorSheetState extends State<AddEditCollaboratorSheet> {
@@ -35,28 +38,36 @@ class _AddEditCollaboratorSheetState extends State<AddEditCollaboratorSheet> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     final repo = context.read<AppRepository>();
-    if (widget.collaborator == null) {
-      await repo.addCollaborator(
-        name: _nameCtrl.text.trim(),
-        phone: _phoneCtrl.text.trim(),
-        note: _noteCtrl.text.trim(),
-      );
-    } else {
-      await repo.updateCollaborator(widget.collaborator!.copyWith(
-        name: _nameCtrl.text.trim(),
-        phone: _phoneCtrl.text.trim(),
-        note: _noteCtrl.text.trim(),
-        active: _active,
-      ));
-    }
-    if (mounted) Navigator.pop(context);
+    final saved = await runRepositoryAction(context, () async {
+      if (widget.collaborator == null) {
+        await repo.addCollaborator(
+          name: _nameCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+          note: _noteCtrl.text.trim(),
+        );
+      } else {
+        await repo.updateCollaborator(
+          widget.collaborator!.copyWith(
+            name: _nameCtrl.text.trim(),
+            phone: _phoneCtrl.text.trim(),
+            note: _noteCtrl.text.trim(),
+            active: _active,
+          ),
+        );
+      }
+    });
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (saved) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.collaborator != null;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -68,7 +79,9 @@ class _AddEditCollaboratorSheetState extends State<AddEditCollaboratorSheet> {
               children: [
                 Text(
                   isEdit ? 'Sửa cộng tác viên' : 'Thêm cộng tác viên',
-                  style: context.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: context.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -103,7 +116,10 @@ class _AddEditCollaboratorSheetState extends State<AddEditCollaboratorSheet> {
                   onPressed: _saving ? null : _save,
                   child: _saving
                       ? const SizedBox(
-                          width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text('Lưu'),
                 ),
               ],

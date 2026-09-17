@@ -50,17 +50,15 @@ Việc ghi dữ liệu (`addProfile`, `updateStage`, `payCommission`...) gọi
 thẳng `set()`/`update()`/`delete()` trên Firestore; kết quả sẽ quay lại
 qua snapshot listener ở bước trên (không cập nhật cache cục bộ hai lần).
 
-## Firebase Storage
+## Firebase Storage (deferred, chưa bật trong Phase 1.4)
 
 ```
 users/{uid}/profiles/{profileId}/attachments/{attachmentId}-{fileName}
 ```
 
-File được tải lên qua `StorageUploadService.uploadAttachment()`, trả về
-download URL để lưu vào field `localPathOrUrl` của `Attachment` trên
-Firestore. Khi xóa file, `Attachment` document bị xóa trước; xóa object
-thật trên Storage là best-effort (không chặn UI nếu lỗi).
-
+Đây là đường dẫn dự kiến của code Storage có sẵn, không phải tính năng
+production đã hoạt động. Phase 1.4 không bật Storage/Blaze, không deploy Storage
+rules. Firebase Mode thông báo chưa hỗ trợ upload. Demo giữ hành vi hiện có.
 ## Quy tắc bảo mật
 
 Xem file đầy đủ tại [`firestore.rules`](../firestore.rules) và
@@ -82,3 +80,10 @@ tại (`collection(...).snapshots()` không có `where`/`orderBy` phức tạp)
 không cần composite index tùy chỉnh. Nếu sau này thêm truy vấn lọc/sắp xếp
 phức tạp trên subcollection lớn, cân nhắc bật Firestore composite index
 qua Firebase Console khi gặp lỗi gợi ý index trong log.
+
+## Độ tin cậy Phase 1.4
+
+Repository chờ phản hồi server ban đầu, có onError và hủy listeners khi đổi UID.
+Thanh toán CTV dùng Firestore transaction: ghi giao dịch, timeline, tăng tổng
+paidAmount cùng một lần commit. Xóa đọc giao dịch server để tránh trừ lặp; sửa
+thông tin phân công không ghi đè paidAmount từ bản cache cũ.

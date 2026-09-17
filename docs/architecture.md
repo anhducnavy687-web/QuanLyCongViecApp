@@ -66,9 +66,7 @@ Provider không nằm trong `MainShell`; mọi route được push đều truy c
 ## An toàn khi Firebase chưa được cấu hình
 
 `FirebaseAuthService.ensureInitialized()` bọc `Firebase.initializeApp()`
-trong `try/catch`. Nếu dự án chưa chạy `flutterfire configure` (thiếu
-`firebase_options.dart`, thiếu `google-services.json`...), lệnh này sẽ ném
-lỗi, bị bắt lại, và `isAvailable = false`. Khi đó:
+trong `try/catch`. Phase 1.4 đã có Web options. Nếu khởi tạo lỗi mạng hoặc native chưa có cấu hình mặc định, `isAvailable = false`. Khi đó:
 
 - App vẫn khởi động bình thường, không crash.
 - Nút "Đăng nhập bằng Google" gọi `signInWithGoogle()` sẽ ném
@@ -296,3 +294,16 @@ không có đường dẫn con để yêu cầu SPA rewrite. Refresh tải lại
 không có cam kết khôi phục route chi tiết hoặc dữ liệu Demo trong bộ nhớ.
 Firebase, UID isolation, rules và responsive architecture không thay đổi.
 Firebase Web còn thiếu cấu hình project; xem [hướng dẫn triển khai](deploy-github-pages.md).
+
+## Phase 1.4: phiên Firebase Web thật
+
+Web đã có `firebase_options.dart` và dùng Firebase Auth popup Google. Native
+vẫn dùng cấu hình mặc định nếu có; thiếu cấu hình native không chặn Demo.
+AppSession sở hữu/dispose repositories. Khi đổi phiên, MaterialApp thay key để
+loại bỏ Navigator/routes cũ; kết quả tải của generation cũ không được gắn lại.
+Repository chờ snapshots server ban đầu và xử lý onError; lỗi sau đăng nhập
+hiển thị màn hình retry/đăng xuất thay vì tiếp tục hiện dữ liệu cũ.
+
+Thanh toán dùng Firestore transaction để ghi lịch sử tiền, timeline và tăng
+paidAmount nguyên tử. Sửa phân công bỏ paidAmount khỏi payload cập nhật.
+Storage vẫn deferred; xem firebase-setup.md để biết phạm vi production.

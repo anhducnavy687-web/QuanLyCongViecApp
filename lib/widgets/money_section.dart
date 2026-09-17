@@ -5,6 +5,7 @@ import '../core/extensions/context_extensions.dart';
 import '../core/extensions/datetime_extensions.dart';
 import '../core/theme/app_colors.dart';
 import '../core/utils/money_utils.dart';
+import '../core/utils/repository_action.dart';
 import '../models/models.dart';
 import '../repositories/app_repository.dart';
 import 'money_bar.dart';
@@ -41,9 +42,17 @@ class MoneySection extends StatelessWidget {
           _row('Còn phải nhận', finance.remainingToReceive, AppColors.overdue),
           const Divider(height: 20),
           _row('Chi phí', finance.expense, AppColors.stalled),
-          _row('Hoa hồng cộng tác viên', finance.commissionTotal, AppColors.waiting),
+          _row(
+            'Hoa hồng cộng tác viên',
+            finance.commissionTotal,
+            AppColors.waiting,
+          ),
           _row('Đã trả hoa hồng', finance.commissionPaid, AppColors.inProgress),
-          _row('Còn phải trả hoa hồng', finance.commissionRemaining, AppColors.overdue),
+          _row(
+            'Còn phải trả hoa hồng',
+            finance.commissionRemaining,
+            AppColors.overdue,
+          ),
           const SizedBox(height: 12),
           if (transactions.isNotEmpty) ...[
             Text('Lịch sử giao dịch', style: context.textTheme.labelLarge),
@@ -60,11 +69,21 @@ class MoneySection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           const SizedBox(width: 8),
           Text(
             MoneyUtils.format(value),
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -76,6 +95,7 @@ class MoneySection extends StatelessWidget {
     final noteCtrl = TextEditingController();
     TransactionType type = TransactionType.received;
     DateTime date = DateTime.now();
+    bool saving = false;
 
     showDialog(
       context: context,
@@ -89,8 +109,14 @@ class MoneySection extends StatelessWidget {
               children: [
                 SegmentedButton<TransactionType>(
                   segments: const [
-                    ButtonSegment(value: TransactionType.received, label: Text('Đã nhận')),
-                    ButtonSegment(value: TransactionType.expense, label: Text('Chi phí')),
+                    ButtonSegment(
+                      value: TransactionType.received,
+                      label: Text('Đã nhận'),
+                    ),
+                    ButtonSegment(
+                      value: TransactionType.expense,
+                      label: Text('Chi phí'),
+                    ),
                   ],
                   selected: {type},
                   onSelectionChanged: (s) => setState(() => type = s.first),
@@ -113,38 +139,65 @@ class MoneySection extends StatelessWidget {
                     if (picked != null) setState(() => date = picked);
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Ngày giao dịch'),
+                    decoration: const InputDecoration(
+                      labelText: 'Ngày giao dịch',
+                    ),
                     child: Text(date.ddMMyyyy),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: noteCtrl,
-                  decoration: const InputDecoration(labelText: 'Ghi chú (không bắt buộc)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Ghi chú (không bắt buộc)',
+                  ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
-              onPressed: () {
-                final amount = num.tryParse(amountCtrl.text.replaceAll('.', '').replaceAll(',', ''));
-                if (amount == null || amount < 0) {
-                  context.showSnackBar('Số tiền không hợp lệ', isError: true);
-                  return;
-                }
-                repo.addTransaction(MoneyTransaction(
-                  id: '',
-                  profileId: profileId,
-                  type: type,
-                  amount: amount,
-                  date: date,
-                  note: noteCtrl.text.trim(),
-                  createdAt: DateTime.now(),
-                ));
-                Navigator.pop(ctx);
-              },
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final amount = num.tryParse(
+                        amountCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+                      );
+                      if (amount == null || amount < 0) {
+                        context.showSnackBar(
+                          'Số tiền không hợp lệ',
+                          isError: true,
+                        );
+                        return;
+                      }
+                      setState(() => saving = true);
+                      final saved = await runRepositoryAction(
+                        context,
+                        () async {
+                          await repo.addTransaction(
+                            MoneyTransaction(
+                              id: '',
+                              profileId: profileId,
+                              type: type,
+                              amount: amount,
+                              date: date,
+                              note: noteCtrl.text.trim(),
+                              createdAt: DateTime.now(),
+                            ),
+                          );
+                        },
+                      );
+                      if (!ctx.mounted) return;
+                      if (saved) {
+                        Navigator.pop(ctx);
+                      } else {
+                        setState(() => saving = false);
+                      }
+                    },
               child: const Text('Lưu'),
             ),
           ],
@@ -178,7 +231,10 @@ class _TransactionTile extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, size: 14, color: color),
           ),
           const SizedBox(width: 10),
@@ -186,11 +242,20 @@ class _TransactionTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(transaction.type.label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                Text(
+                  transaction.type.label,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 if (transaction.note.isNotEmpty)
                   Text(
                     transaction.note,
-                    style: TextStyle(fontSize: 11.5, color: context.colors.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: context.colors.onSurfaceVariant,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -202,17 +267,28 @@ class _TransactionTile extends StatelessWidget {
             children: [
               Text(
                 MoneyUtils.format(transaction.amount),
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: color),
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                  color: color,
+                ),
               ),
-              Text(transaction.date.ddMMyyyy, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(
+                transaction.date.ddMMyyyy,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
             ],
           ),
           PopupMenuButton<String>(
             padding: EdgeInsets.zero,
             icon: const Icon(Icons.more_vert_rounded, size: 18),
-            onSelected: (v) {
+            onSelected: (v) async {
               if (v == 'delete') {
-                context.read<AppRepository>().deleteTransaction(transaction.id);
+                final repo = context.read<AppRepository>();
+                await runRepositoryAction(
+                  context,
+                  () => repo.deleteTransaction(transaction.id),
+                );
               }
             },
             itemBuilder: (ctx) => const [

@@ -11,6 +11,7 @@ import 'navigation/root_screen.dart';
 import 'navigation/theme_controller.dart';
 import 'repositories/app_repository.dart';
 import 'services/connectivity_service.dart';
+import 'widgets/error_state.dart';
 
 class QlcvApp extends StatelessWidget {
   const QlcvApp({
@@ -37,6 +38,7 @@ class QlcvApp extends StatelessWidget {
       child: Consumer<ThemeController>(
         builder: (context, theme, _) {
           return MaterialApp(
+            key: ValueKey(context.watch<AppSession>().viewRevision),
             title: AppConstants.appName,
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light(),
@@ -82,7 +84,31 @@ class QlcvApp extends StatelessWidget {
                   ? child!
                   : ChangeNotifierProvider<AppRepository>.value(
                       value: repo,
-                      child: child!,
+                      child: Consumer<AppRepository>(
+                        builder: (context, repository, _) =>
+                            repository.syncError == null
+                            ? child!
+                            : Scaffold(
+                                body: Column(
+                                  children: [
+                                    Expanded(
+                                      child: ErrorState(
+                                        message: repository.syncError!,
+                                        onRetry: context
+                                            .read<AppSession>()
+                                            .retryRepository,
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: context
+                                          .read<AppSession>()
+                                          .signOut,
+                                      child: const Text('Đăng xuất'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
                     );
               if (kIsWeb && !kReleaseMode) {
                 content = MobilePreviewFrame(child: content);
