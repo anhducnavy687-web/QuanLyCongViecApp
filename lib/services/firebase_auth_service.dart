@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -11,12 +13,15 @@ class FirebaseAuthService extends AuthService {
   FirebaseAuthService({
     bool? isWeb,
     this.initialize,
+    this.initializationWait = const Duration(seconds: 8),
     fb_auth.FirebaseAuth Function()? authFactory,
     GoogleSignIn Function()? googleFactory,
   }) : _isWeb = isWeb ?? kIsWeb,
        _authFactory = authFactory ?? (() => fb_auth.FirebaseAuth.instance),
        _googleFactory = googleFactory ?? (() => GoogleSignIn());
 
+  // UI wait budget only: the SDK operation continues and retries join it.
+  final Duration initializationWait;
   final bool _isWeb;
   final Future<void> Function()? initialize;
   final fb_auth.FirebaseAuth Function() _authFactory;
@@ -35,28 +40,44 @@ class FirebaseAuthService extends AuthService {
   String? get initializationError => _initializationError;
 
   @override
-  Future<void> ensureInitialized() {
-    if (_available) return Future.value();
-    return _initializing ??= _initializeFirebase().whenComplete(() {
+  Future<void> ensureInitialized() async {
+    if (_available) return;
+    final pending = _initializing ??= _initializeFirebase().whenComplete(() {
       _initializing = null;
     });
+    try {
+      await pending.timeout(initializationWait);
+    } on TimeoutException catch (error) {
+      // Future.timeout does not cancel Firebase. Keep the original future so
+      // a retry cannot start a second initialization while this one is pending.
+      logFirebaseFailure('initialization-wait', error);
+      _initializationError =
+          'Kết nối đang chậm hoặc bị chặn. Firebase vẫn đang khởi tạo. '
+          'Kiểm tra mạng rồi nhấn Thử lại; nếu vẫn không được, hãy tải lại trang.';
+    }
   }
 
   Future<void> _initializeFirebase() async {
+    var stage = 'core-initialization';
     try {
       if (initialize != null) {
         await initialize!();
-      } else if (Firebase.apps.isEmpty) {
+      } else {
+        // Do not read Firebase.apps before the Web SDK is loaded: the legacy
+        // plugin's undefined-object guard only recognizes Chromium wording.
+        // initializeApp itself reuses an existing default app with these options.
         await Firebase.initializeApp(
           options: _isWeb ? DefaultFirebaseOptions.web : null,
-        ).timeout(const Duration(seconds: 8));
+        );
       }
+      stage = 'auth-initialization';
       _auth = _authFactory();
       // No GIS client or People API is needed by Firebase's Web popup.
       if (!_isWeb) _googleSignIn = _googleFactory();
       _available = true;
       _initializationError = null;
     } catch (e) {
+      logFirebaseFailure(stage, e);
       _available = false;
       _initializationError =
           'Không thể khởi tạo Firebase. ${firebaseErrorMessage(e)}';
@@ -80,7 +101,12 @@ class FirebaseAuthService extends AuthService {
   Future<AppUser?> restoreSession() async {
     if (!_available) return null;
     // First event arrives after persisted Firebase credentials restore.
-    return await authStateChanges().first.timeout(const Duration(seconds: 8));
+    try {
+      return await authStateChanges().first.timeout(initializationWait);
+    } catch (error) {
+      logFirebaseFailure('session-restore', error);
+      rethrow;
+    }
   }
 
   @override
