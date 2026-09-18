@@ -5,6 +5,7 @@ import '../core/extensions/context_extensions.dart';
 import '../core/extensions/datetime_extensions.dart';
 import '../core/theme/app_colors.dart';
 import '../core/utils/money_utils.dart';
+import '../core/utils/confirm_destructive_action.dart';
 import '../core/utils/repository_action.dart';
 import '../models/models.dart';
 import '../repositories/app_repository.dart';
@@ -167,7 +168,7 @@ class MoneySection extends StatelessWidget {
                       final amount = num.tryParse(
                         amountCtrl.text.replaceAll('.', '').replaceAll(',', ''),
                       );
-                      if (amount == null || amount < 0) {
+                      if (amount == null || amount <= 0) {
                         context.showSnackBar(
                           'Số tiền không hợp lệ',
                           isError: true,
@@ -285,6 +286,15 @@ class _TransactionTile extends StatelessWidget {
             onSelected: (v) async {
               if (v == 'delete') {
                 final repo = context.read<AppRepository>();
+                final confirmed = await confirmDestructiveAction(
+                  context,
+                  title: 'Xóa giao dịch?',
+                  message:
+                      'Giao dịch ${transaction.type.label.toLowerCase()} '
+                      '${MoneyUtils.format(transaction.amount)} sẽ bị xóa. '
+                      'Số liệu tài chính sẽ được tính lại; lịch sử timeline được giữ lại.',
+                );
+                if (!confirmed || !context.mounted) return;
                 await runRepositoryAction(
                   context,
                   () => repo.deleteTransaction(transaction.id),

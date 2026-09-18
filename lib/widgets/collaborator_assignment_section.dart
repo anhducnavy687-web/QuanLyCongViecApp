@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/extensions/context_extensions.dart';
 import '../core/utils/money_utils.dart';
+import '../core/utils/confirm_destructive_action.dart';
 import '../core/utils/repository_action.dart';
 import '../core/utils/validators.dart';
 import '../models/models.dart';
@@ -60,22 +61,48 @@ class CollaboratorAssignmentSection extends StatelessWidget {
                           ),
                           PopupMenuButton<String>(
                             icon: const Icon(Icons.more_vert_rounded, size: 18),
-                            onSelected: (v) {
+                            onSelected: (v) async {
                               if (v == 'pay') {
                                 _showPayDialog(context, repo, a);
+                              } else if (v == 'edit') {
+                                _showEditAssignmentDialog(context, repo, a);
                               } else if (v == 'delete') {
-                                repo.deleteAssignment(a.id);
+                                final confirmed =
+                                    await confirmDestructiveAction(
+                                      context,
+                                      title: a.paidAmount > 0
+                                          ? 'Lưu trữ phân công?'
+                                          : 'Xóa phân công?',
+                                      message: a.paidAmount > 0
+                                          ? 'Phân công đã có lịch sử thanh toán nên sẽ được lưu trữ, không xóa cứng.'
+                                          : 'Phân công này chưa có thanh toán và sẽ bị xóa.',
+                                      confirmLabel: a.paidAmount > 0
+                                          ? 'Lưu trữ'
+                                          : 'Xóa',
+                                    );
+                                if (!confirmed || !context.mounted) return;
+                                await runRepositoryAction(
+                                  context,
+                                  () => repo.deleteAssignment(a.id),
+                                );
                               }
                             },
-                            itemBuilder: (ctx) => const [
-                              PopupMenuItem(
-                                value: 'pay',
-                                child: Text('Trả hoa hồng'),
-                              ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Gỡ khỏi hồ sơ'),
-                              ),
+                            itemBuilder: (ctx) => [
+                              if (!a.isArchived)
+                                const PopupMenuItem(
+                                  value: 'pay',
+                                  child: Text('Trả hoa hồng'),
+                                ),
+                              if (!a.isArchived)
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Sửa phân công'),
+                                ),
+                              if (!a.isArchived)
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('Gỡ khỏi hồ sơ'),
+                                ),
                             ],
                           ),
                         ],
@@ -86,6 +113,11 @@ class CollaboratorAssignmentSection extends StatelessWidget {
                         ' (còn ${MoneyUtils.format(a.remainingAmount)})',
                         style: const TextStyle(fontSize: 12.5),
                       ),
+                      if (a.isArchived)
+                        const Text(
+                          'Đã lưu trữ — giữ lại lịch sử thanh toán',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
                       const Divider(height: 16),
                     ],
                   ),
@@ -96,7 +128,7 @@ class CollaboratorAssignmentSection extends StatelessWidget {
   }
 
   void _showAssignDialog(BuildContext context, AppRepository repo) {
-    final collaborators = repo.collaborators;
+    final collaborators = repo.collaborators.where((c) => c.active).toList();
     if (collaborators.isEmpty) {
       context.showSnackBar(
         'Chưa có cộng tác viên nào. Hãy thêm ở tab Cộng tác viên.',
@@ -107,6 +139,7 @@ class CollaboratorAssignmentSection extends StatelessWidget {
     String? selectedId = collaborators.first.id;
     final roleCtrl = TextEditingController();
     final commissionCtrl = TextEditingController();
+    bool saving = false;
 
     showDialog(
       context: context,
@@ -149,29 +182,137 @@ class CollaboratorAssignmentSection extends StatelessWidget {
               child: const Text('Hủy'),
             ),
             FilledButton(
-              onPressed: () {
-                final commission =
-                    num.tryParse(
-                      commissionCtrl.text
-                          .replaceAll('.', '')
-                          .replaceAll(',', ''),
-                    ) ??
-                    0;
-                if (selectedId == null || commission < 0) return;
-                repo.addAssignment(
-                  CollaboratorAssignment(
-                    id: '',
-                    profileId: profileId,
-                    collaboratorId: selectedId!,
-                    role: roleCtrl.text.trim(),
-                    commissionAmount: commission,
-                    createdAt: DateTime.now(),
-                    updatedAt: DateTime.now(),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final commission =
+                          num.tryParse(
+                            commissionCtrl.text
+                                .replaceAll('.', '')
+                                .replaceAll(',', ''),
+                          ) ??
+                          0;
+                      if (selectedId == null || commission < 0) return;
+                      setState(() => saving = true);
+                      final saved = await runRepositoryAction(
+                        context,
+                        () async {
+                          await repo.addAssignment(
+                            CollaboratorAssignment(
+                              id: '',
+                              profileId: profileId,
+                              collaboratorId: selectedId!,
+                              role: roleCtrl.text.trim(),
+                              commissionAmount: commission,
+                              createdAt: DateTime.now(),
+                              updatedAt: DateTime.now(),
+                            ),
+                          );
+                        },
+                      );
+                      if (!ctx.mounted) return;
+                      if (saved) {
+                        Navigator.pop(ctx);
+                      } else {
+                        setState(() => saving = false);
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Lưu'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditAssignmentDialog(
+    BuildContext context,
+    AppRepository repo,
+    CollaboratorAssignment assignment,
+  ) {
+    final roleCtrl = TextEditingController(text: assignment.role);
+    final commissionCtrl = TextEditingController(
+      text: assignment.commissionAmount.toStringAsFixed(0),
+    );
+    bool saving = false;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Sửa phân công'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: roleCtrl,
+                  decoration: const InputDecoration(labelText: 'Vai trò'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: commissionCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Hoa hồng (đ)',
+                    helperText:
+                        'Đã trả ${MoneyUtils.format(assignment.paidAmount)}',
                   ),
-                );
-                Navigator.pop(ctx);
-              },
-              child: const Text('Lưu'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final commission = num.tryParse(
+                        commissionCtrl.text
+                            .replaceAll('.', '')
+                            .replaceAll(',', ''),
+                      );
+                      if (commission == null ||
+                          commission < assignment.paidAmount) {
+                        context.showSnackBar(
+                          'Hoa hồng không được thấp hơn số tiền đã thanh toán.',
+                          isError: true,
+                        );
+                        return;
+                      }
+                      setState(() => saving = true);
+                      final saved = await runRepositoryAction(
+                        context,
+                        () => repo.updateAssignment(
+                          assignment.copyWith(
+                            role: roleCtrl.text.trim(),
+                            commissionAmount: commission,
+                          ),
+                        ),
+                      );
+                      if (!ctx.mounted) return;
+                      if (saved) {
+                        Navigator.pop(ctx);
+                      } else {
+                        setState(() => saving = false);
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Lưu'),
             ),
           ],
         ),

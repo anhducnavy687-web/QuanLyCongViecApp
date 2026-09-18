@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../core/responsive/responsive.dart';
+import '../../core/utils/repository_action.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/attachment_section.dart';
 import '../../widgets/collaborator_assignment_section.dart';
@@ -147,31 +148,51 @@ class ProfileDetailScreen extends StatelessWidget {
     AppRepository repo,
     String profileId,
   ) {
+    bool deleting = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Xóa hồ sơ?'),
-        content: const Text(
-          'Toàn bộ dữ liệu liên quan (bước xử lý, giao dịch, tài liệu...) sẽ bị xóa. '
-          'Hành động này không thể hoàn tác.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Xóa hồ sơ?'),
+          content: const Text(
+            'Toàn bộ dữ liệu liên quan (bước xử lý, giao dịch, tài liệu...) sẽ bị xóa. '
+            'Hành động này không thể hoàn tác.',
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
+          actions: [
+            TextButton(
+              onPressed: deleting ? null : () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
             ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await repo.deleteProfile(profileId);
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('Xóa'),
-          ),
-        ],
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.error,
+              ),
+              onPressed: deleting
+                  ? null
+                  : () async {
+                      setState(() => deleting = true);
+                      final deleted = await runRepositoryAction(
+                        context,
+                        () => repo.deleteProfile(profileId),
+                      );
+                      if (!ctx.mounted) return;
+                      if (!deleted) {
+                        setState(() => deleting = false);
+                        return;
+                      }
+                      Navigator.pop(ctx);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+              child: deleting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Xóa'),
+            ),
+          ],
+        ),
       ),
     );
   }

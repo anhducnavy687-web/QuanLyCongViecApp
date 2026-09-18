@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_colors.dart';
+import '../core/utils/confirm_destructive_action.dart';
+import '../core/utils/repository_action.dart';
 import '../models/models.dart';
 import '../repositories/app_repository.dart';
 import 'section_card.dart';
@@ -40,91 +42,59 @@ class StageStepList extends StatelessWidget {
     );
   }
 
-  void _showAddStageDialog(BuildContext context, AppRepository repo, int currentCount) {
+  void _showAddStageDialog(
+    BuildContext context,
+    AppRepository repo,
+    int currentCount,
+  ) {
     final ctrl = TextEditingController();
+    bool saving = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Thêm bước mới'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Tên bước'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () {
-              final name = ctrl.text.trim();
-              if (name.isEmpty) return;
-              repo.addStage(WorkStage(
-                id: '',
-                profileId: profileId,
-                name: name,
-                order: currentCount,
-              ));
-              Navigator.pop(ctx);
-            },
-            child: const Text('Thêm'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Thêm bước mới'),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Tên bước'),
           ),
-        ],
-      ),
-    );
-  }
-
-  void _showStageActions(BuildContext context, AppRepository repo, WorkStage stage) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              title: Text(stage.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(stage.status.label),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
             ),
-            const Divider(height: 1),
-            if (stage.status != StageStatus.completed)
-              ListTile(
-                leading: const Icon(Icons.check_circle_outline_rounded, color: AppColors.completed),
-                title: const Text('Đánh dấu hoàn thành'),
-                onTap: () {
-                  repo.markStageCompleted(stage.id);
-                  Navigator.pop(ctx);
-                },
-              ),
-            if (stage.status == StageStatus.pending)
-              ListTile(
-                leading: const Icon(Icons.play_circle_outline_rounded, color: AppColors.inProgress),
-                title: const Text('Chuyển thành bước hiện tại'),
-                onTap: () {
-                  repo.setStageInProgress(stage.id);
-                  Navigator.pop(ctx);
-                },
-              ),
-            if (stage.status == StageStatus.completed)
-              ListTile(
-                leading: const Icon(Icons.undo_rounded),
-                title: const Text('Bỏ đánh dấu hoàn thành'),
-                onTap: () {
-                  repo.setStageInProgress(stage.id);
-                  Navigator.pop(ctx);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Sửa tên bước'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _editStageName(context, repo, stage);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.delete_outline_rounded, color: context.colors.error),
-              title: Text('Xóa bước', style: TextStyle(color: context.colors.error)),
-              onTap: () {
-                repo.deleteStage(stage.id);
-                Navigator.pop(ctx);
-              },
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final name = ctrl.text.trim();
+                      if (name.isEmpty) return;
+                      setState(() => saving = true);
+                      final saved = await runRepositoryAction(
+                        context,
+                        () async {
+                          await repo.addStage(
+                            WorkStage(
+                              id: '',
+                              profileId: profileId,
+                              name: name,
+                              order: currentCount,
+                            ),
+                          );
+                        },
+                      );
+                      if (!ctx.mounted) return;
+                      if (saved) Navigator.pop(ctx);
+                      if (!saved) setState(() => saving = false);
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Thêm'),
             ),
           ],
         ),
@@ -132,26 +102,170 @@ class StageStepList extends StatelessWidget {
     );
   }
 
-  void _editStageName(BuildContext context, AppRepository repo, WorkStage stage) {
+  void _showStageActions(
+    BuildContext context,
+    AppRepository repo,
+    WorkStage stage,
+  ) {
+    bool saving = false;
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => SafeArea(
+          child: IgnorePointer(
+            ignoring: saving,
+            child: Wrap(
+              children: [
+                ListTile(
+                  title: Text(
+                    stage.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(stage.status.label),
+                ),
+                const Divider(height: 1),
+                if (stage.status != StageStatus.completed)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: AppColors.completed,
+                    ),
+                    title: const Text('Đánh dấu hoàn thành'),
+                    onTap: () async {
+                      setState(() => saving = true);
+                      final saved = await runRepositoryAction(
+                        context,
+                        () => repo.markStageCompleted(stage.id),
+                      );
+                      if (!ctx.mounted) return;
+                      if (saved) Navigator.pop(ctx);
+                      if (!saved) setState(() => saving = false);
+                    },
+                  ),
+                if (stage.status == StageStatus.pending)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.play_circle_outline_rounded,
+                      color: AppColors.inProgress,
+                    ),
+                    title: const Text('Chuyển thành bước hiện tại'),
+                    onTap: () async {
+                      setState(() => saving = true);
+                      final saved = await runRepositoryAction(
+                        context,
+                        () => repo.setStageInProgress(stage.id),
+                      );
+                      if (!ctx.mounted) return;
+                      if (saved) Navigator.pop(ctx);
+                      if (!saved) setState(() => saving = false);
+                    },
+                  ),
+                if (stage.status == StageStatus.completed)
+                  ListTile(
+                    leading: const Icon(Icons.undo_rounded),
+                    title: const Text('Bỏ đánh dấu hoàn thành'),
+                    onTap: () async {
+                      setState(() => saving = true);
+                      final saved = await runRepositoryAction(
+                        context,
+                        () => repo.setStageInProgress(stage.id),
+                      );
+                      if (!ctx.mounted) return;
+                      if (saved) Navigator.pop(ctx);
+                      if (!saved) setState(() => saving = false);
+                    },
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('Sửa tên bước'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _editStageName(context, repo, stage);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: context.colors.error,
+                  ),
+                  title: Text(
+                    'Xóa bước',
+                    style: TextStyle(color: context.colors.error),
+                  ),
+                  onTap: () async {
+                    final confirmed = await confirmDestructiveAction(
+                      context,
+                      title: 'Xóa bước xử lý?',
+                      message:
+                          'Bước "${stage.name}" sẽ bị xóa và không thể hoàn tác.',
+                    );
+                    if (!confirmed || !ctx.mounted) return;
+                    setState(() => saving = true);
+                    final saved = await runRepositoryAction(
+                      context,
+                      () => repo.deleteStage(stage.id),
+                    );
+                    if (!ctx.mounted) return;
+                    if (saved) Navigator.pop(ctx);
+                    if (!saved) setState(() => saving = false);
+                  },
+                ),
+                if (saving)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _editStageName(
+    BuildContext context,
+    AppRepository repo,
+    WorkStage stage,
+  ) {
     final ctrl = TextEditingController(text: stage.name);
+    bool saving = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sửa tên bước'),
-        content: TextField(controller: ctrl, autofocus: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () {
-              final name = ctrl.text.trim();
-              if (name.isNotEmpty) {
-                repo.updateStage(stage.copyWith(name: name));
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Lưu'),
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Sửa tên bước'),
+          content: TextField(controller: ctrl, autofocus: true),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final name = ctrl.text.trim();
+                      if (name.isEmpty) return;
+                      setState(() => saving = true);
+                      final saved = await runRepositoryAction(
+                        context,
+                        () => repo.updateStage(stage.copyWith(name: name)),
+                      );
+                      if (!ctx.mounted) return;
+                      if (saved) Navigator.pop(ctx);
+                      if (!saved) setState(() => saving = false);
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Lưu'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -162,7 +276,11 @@ class _StageTile extends StatelessWidget {
   final bool isLast;
   final VoidCallback onTap;
 
-  const _StageTile({required this.stage, required this.isLast, required this.onTap});
+  const _StageTile({
+    required this.stage,
+    required this.isLast,
+    required this.onTap,
+  });
 
   (Color, IconData) get _style {
     switch (stage.status) {
@@ -195,19 +313,26 @@ class _StageTile extends StatelessWidget {
                     width: 26,
                     height: 26,
                     decoration: BoxDecoration(
-                      color: stage.status == StageStatus.pending ? Colors.transparent : color,
+                      color: stage.status == StageStatus.pending
+                          ? Colors.transparent
+                          : color,
                       shape: BoxShape.circle,
                       border: Border.all(color: color, width: 2),
                     ),
                     child: Icon(
                       icon,
                       size: 16,
-                      color: stage.status == StageStatus.pending ? color : Colors.white,
+                      color: stage.status == StageStatus.pending
+                          ? color
+                          : Colors.white,
                     ),
                   ),
                   if (!isLast)
                     Expanded(
-                      child: Container(width: 2, color: color.withValues(alpha: 0.3)),
+                      child: Container(
+                        width: 2,
+                        color: color.withValues(alpha: 0.3),
+                      ),
                     ),
                 ],
               ),
@@ -221,10 +346,15 @@ class _StageTile extends StatelessWidget {
                       Text(
                         stage.name,
                         style: TextStyle(
-                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
-                          color: stage.status == StageStatus.skipped ? Colors.grey : null,
-                          decoration:
-                              stage.status == StageStatus.skipped ? TextDecoration.lineThrough : null,
+                          fontWeight: isCurrent
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                          color: stage.status == StageStatus.skipped
+                              ? Colors.grey
+                              : null,
+                          decoration: stage.status == StageStatus.skipped
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                       if (isCurrent)

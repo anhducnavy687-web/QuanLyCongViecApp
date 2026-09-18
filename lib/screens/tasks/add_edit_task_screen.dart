@@ -79,6 +79,16 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_status == TaskStatus.waiting &&
+        _waitingSince != null &&
+        _expectedResponseDate != null &&
+        _expectedResponseDate!.isBefore(_waitingSince!)) {
+      context.showSnackBar(
+        'Ngày dự kiến phản hồi không được trước ngày bắt đầu chờ',
+        isError: true,
+      );
+      return;
+    }
     setState(() => _saving = true);
     final repo = context.read<AppRepository>();
     final saved = await runRepositoryAction(context, () async {
@@ -107,7 +117,11 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
                 ? _expectedResponseDate
                 : null,
             clearExpectedResponseDate: _status != TaskStatus.waiting,
-            completedAt: _status == TaskStatus.completed ? now : null,
+            completedAt: _status == TaskStatus.completed
+                ? (widget.task!.status == TaskStatus.completed
+                      ? widget.task!.completedAt
+                      : now)
+                : null,
             clearCompletedAt: _status != TaskStatus.completed,
             note: _noteCtrl.text.trim(),
           ),
@@ -133,6 +147,7 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
                 : null,
             createdAt: now,
             updatedAt: now,
+            completedAt: _status == TaskStatus.completed ? now : null,
             note: _noteCtrl.text.trim(),
           ),
         );

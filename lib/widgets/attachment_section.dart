@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/extensions/context_extensions.dart';
+import '../core/utils/confirm_destructive_action.dart';
+import '../core/utils/repository_action.dart';
 import '../models/models.dart';
 import '../repositories/app_repository.dart';
 import '../repositories/firebase_repository.dart';
@@ -134,7 +136,10 @@ class _AttachmentSectionState extends State<AttachmentSection> {
       ),
     );
     if (newName != null && newName.isNotEmpty && mounted) {
-      await context.read<AppRepository>().renameAttachment(att.id, newName);
+      await runRepositoryAction(
+        context,
+        () => context.read<AppRepository>().renameAttachment(att.id, newName),
+      );
     }
   }
 
@@ -232,7 +237,18 @@ class _AttachmentSectionState extends State<AttachmentSection> {
                               }
                               break;
                             case 'delete':
-                              await repo.deleteAttachment(att.id);
+                              final confirmed = await confirmDestructiveAction(
+                                context,
+                                title: 'Xóa thông tin file?',
+                                message:
+                                    'Metadata của file "${att.fileName}" sẽ bị xóa. '
+                                    'Thao tác này không thể hoàn tác.',
+                              );
+                              if (!confirmed || !context.mounted) return;
+                              await runRepositoryAction(
+                                context,
+                                () => repo.deleteAttachment(att.id),
+                              );
                               break;
                           }
                         },

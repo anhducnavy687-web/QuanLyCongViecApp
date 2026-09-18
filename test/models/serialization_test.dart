@@ -6,7 +6,13 @@ void main() {
 
   group('Serialization round-trip (toJson -> fromJson)', () {
     test('WorkGroup', () {
-      final g = WorkGroup(id: 'g1', name: 'Đất đai', description: 'Mô tả', createdAt: now, updatedAt: now);
+      final g = WorkGroup(
+        id: 'g1',
+        name: 'Đất đai',
+        description: 'Mô tả',
+        createdAt: now,
+        updatedAt: now,
+      );
       final decoded = WorkGroup.fromJson(g.toJson());
       expect(decoded.id, g.id);
       expect(decoded.name, g.name);
@@ -116,6 +122,12 @@ void main() {
       expect(decoded.commissionAmount, 1500000);
       expect(decoded.paidAmount, 1000000);
       expect(decoded.remainingAmount, 500000);
+      expect(decoded.isArchived, false);
+      final archived = CollaboratorAssignment.fromJson({
+        ...a.toJson(),
+        'archivedAt': now.toIso8601String(),
+      });
+      expect(archived.isArchived, true);
     });
 
     test('Attachment', () {

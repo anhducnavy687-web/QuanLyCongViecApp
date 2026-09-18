@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../core/responsive/responsive.dart';
+import '../../core/utils/repository_action.dart';
 import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/empty_state.dart';
@@ -96,31 +97,51 @@ class GroupDetailScreen extends StatelessWidget {
     AppRepository repo,
     WorkGroup group,
   ) {
+    bool deleting = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Xóa nhóm công việc?'),
-        content: Text(
-          'Toàn bộ hồ sơ thuộc nhóm "${group.name}" sẽ bị xóa theo. '
-          'Hành động này không thể hoàn tác.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Xóa nhóm công việc?'),
+          content: Text(
+            'Toàn bộ hồ sơ thuộc nhóm "${group.name}" sẽ bị xóa theo. '
+            'Hành động này không thể hoàn tác.',
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
+          actions: [
+            TextButton(
+              onPressed: deleting ? null : () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
             ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await repo.deleteGroup(group.id);
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('Xóa'),
-          ),
-        ],
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.error,
+              ),
+              onPressed: deleting
+                  ? null
+                  : () async {
+                      setState(() => deleting = true);
+                      final deleted = await runRepositoryAction(
+                        context,
+                        () => repo.deleteGroup(group.id),
+                      );
+                      if (!ctx.mounted) return;
+                      if (!deleted) {
+                        setState(() => deleting = false);
+                        return;
+                      }
+                      Navigator.pop(ctx);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+              child: deleting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Xóa'),
+            ),
+          ],
+        ),
       ),
     );
   }

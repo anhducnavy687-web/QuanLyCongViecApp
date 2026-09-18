@@ -207,6 +207,7 @@ void main() {
       id: 'c',
       profileId: 'p',
       collaboratorId: 'person',
+      commissionAmount: 1000,
       createdAt: now,
       updatedAt: now,
     );
@@ -240,4 +241,165 @@ void main() {
     pc.dispose();
     phone.dispose();
   });
+
+  test('concurrent payments cannot exceed server commission amount', () async {
+    final db = FakeFirebaseFirestore();
+    final now = DateTime.now();
+    final root = db.doc('users/a/profiles/p');
+    await root.set(
+      Profile(
+        id: 'p',
+        groupId: 'g',
+        fullName: 'Test',
+        workTarget: 'Test',
+        startDate: now,
+        createdAt: now,
+        updatedAt: now,
+      ).toJson(),
+    );
+    await root
+        .collection('collaboratorAssignments')
+        .doc('c')
+        .set(
+          CollaboratorAssignment(
+            id: 'c',
+            profileId: 'p',
+            collaboratorId: 'person',
+            commissionAmount: 100,
+            createdAt: now,
+            updatedAt: now,
+          ).toJson(),
+        );
+    final pc = FirebaseRepository(uid: 'a', firestore: db);
+    final phone = FirebaseRepository(uid: 'a', firestore: db);
+    await Future.wait([pc.init(), phone.init()]);
+
+    // FakeFirestore does not emulate server transaction contention. Execute
+    // through two repositories sequentially: the second repository still has
+    // a stale listener snapshot, while the transaction must read server state.
+    await pc.payCommission(assignmentId: 'c', amount: 70, date: now);
+    await expectLater(
+      phone.payCommission(assignmentId: 'c', amount: 70, date: now),
+      throwsA(isA<RepositoryException>()),
+    );
+    expect(
+      (await root.collection('collaboratorAssignments').doc('c').get())
+          .data()!['paidAmount'],
+      70,
+    );
+    expect((await root.collection('transactions').get()).docs.length, 1);
+    pc.dispose();
+    phone.dispose();
+  });
+
+  test(
+    'rejects non-positive money and commission below server paid amount',
+    () async {
+      final db = FakeFirebaseFirestore();
+      final now = DateTime.now();
+      final root = db.doc('users/a/profiles/p');
+      await root.set(
+        Profile(
+          id: 'p',
+          groupId: 'g',
+          fullName: 'Test',
+          workTarget: 'Test',
+          startDate: now,
+          createdAt: now,
+          updatedAt: now,
+        ).toJson(),
+      );
+      final assignment = CollaboratorAssignment(
+        id: 'c',
+        profileId: 'p',
+        collaboratorId: 'person',
+        commissionAmount: 100,
+        paidAmount: 80,
+        createdAt: now,
+        updatedAt: now,
+      );
+      await root
+          .collection('collaboratorAssignments')
+          .doc('c')
+          .set(assignment.toJson());
+      final repo = FirebaseRepository(uid: 'a', firestore: db);
+      await repo.init();
+      for (final amount in [0, -1]) {
+        await expectLater(
+          repo.addTransaction(
+            MoneyTransaction(
+              id: '',
+              profileId: 'p',
+              type: TransactionType.received,
+              amount: amount,
+              date: now,
+              createdAt: now,
+            ),
+          ),
+          throwsA(isA<RepositoryException>()),
+        );
+        await expectLater(
+          repo.payCommission(assignmentId: 'c', amount: amount, date: now),
+          throwsA(isA<RepositoryException>()),
+        );
+      }
+      await expectLater(
+        repo.updateAssignment(assignment.copyWith(commissionAmount: 79)),
+        throwsA(isA<RepositoryException>()),
+      );
+      expect(
+        (await root.collection('collaboratorAssignments').doc('c').get())
+            .data()!['commissionAmount'],
+        100,
+      );
+      repo.dispose();
+    },
+  );
+
+  test(
+    'assignment with payment is archived; unpaid assignment is deleted',
+    () async {
+      final db = FakeFirebaseFirestore();
+      final now = DateTime.now();
+      final root = db.doc('users/a/profiles/p');
+      await root.set(
+        Profile(
+          id: 'p',
+          groupId: 'g',
+          fullName: 'Test',
+          workTarget: 'Test',
+          startDate: now,
+          createdAt: now,
+          updatedAt: now,
+        ).toJson(),
+      );
+      final assignments = root.collection('collaboratorAssignments');
+      for (final entry in {'paid': 10, 'unpaid': 0}.entries) {
+        await assignments
+            .doc(entry.key)
+            .set(
+              CollaboratorAssignment(
+                id: entry.key,
+                profileId: 'p',
+                collaboratorId: 'person',
+                commissionAmount: 100,
+                paidAmount: entry.value,
+                createdAt: now,
+                updatedAt: now,
+              ).toJson(),
+            );
+      }
+      final repo = FirebaseRepository(uid: 'a', firestore: db);
+      await repo.init();
+      await repo.deleteAssignment('paid');
+      await repo.deleteAssignment('unpaid');
+      expect(
+        (await assignments.doc('paid').get()).data()!['archivedAt'],
+        isNotNull,
+      );
+      expect((await assignments.doc('unpaid').get()).exists, false);
+      repo.dispose();
+    },
+  );
+
 }

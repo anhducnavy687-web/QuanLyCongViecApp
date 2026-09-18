@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/extensions/context_extensions.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/utils/money_utils.dart';
+import '../../core/utils/confirm_destructive_action.dart';
+import '../../core/utils/repository_action.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/empty_state.dart';
 import '../profiles/profile_detail_screen.dart';
@@ -49,6 +51,33 @@ class CollaboratorDetailScreen extends StatelessWidget {
               builder: (_) =>
                   AddEditCollaboratorSheet(collaborator: collaborator),
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded),
+            tooltip: assignments.isEmpty
+                ? 'Xóa cộng tác viên'
+                : 'Ngừng hoạt động',
+            onPressed: () async {
+              final used = assignments.isNotEmpty;
+              final confirmed = await confirmDestructiveAction(
+                context,
+                title: used
+                    ? 'Ngừng hoạt động cộng tác viên?'
+                    : 'Xóa cộng tác viên?',
+                message: used
+                    ? 'Cộng tác viên đã có lịch sử phân công nên sẽ được chuyển sang ngừng hoạt động. Lịch sử được giữ nguyên.'
+                    : 'Cộng tác viên "${collaborator.name}" chưa từng được sử dụng và sẽ bị xóa.',
+                confirmLabel: used ? 'Ngừng hoạt động' : 'Xóa',
+              );
+              if (!confirmed || !context.mounted) return;
+              final saved = await runRepositoryAction(
+                context,
+                () => repo.deleteCollaborator(collaborator.id),
+              );
+              if (saved && !used && context.mounted) {
+                Navigator.pop(context);
+              }
+            },
           ),
         ],
       ),

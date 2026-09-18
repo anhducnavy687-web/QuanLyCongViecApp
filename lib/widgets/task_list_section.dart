@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../core/extensions/context_extensions.dart';
 import '../core/extensions/datetime_extensions.dart';
 import '../core/theme/app_colors.dart';
+import '../core/utils/confirm_destructive_action.dart';
+import '../core/utils/repository_action.dart';
 import '../models/models.dart';
 import '../repositories/app_repository.dart';
 import '../screens/tasks/add_edit_task_screen.dart';
@@ -22,17 +24,33 @@ class TaskListSection extends StatelessWidget {
     final repo = context.watch<AppRepository>();
     final tasks = [...repo.tasksOf(profileId)];
 
-    final open = tasks.where((t) => t.status != TaskStatus.completed && t.status != TaskStatus.cancelled).toList()
-      ..sort((a, b) {
-        final ad = a.dueDate;
-        final bd = b.dueDate;
-        if (ad == null && bd == null) return b.priority.index.compareTo(a.priority.index);
-        if (ad == null) return 1;
-        if (bd == null) return -1;
-        return ad.compareTo(bd);
-      });
-    final done = tasks.where((t) => t.status == TaskStatus.completed || t.status == TaskStatus.cancelled).toList()
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final open =
+        tasks
+            .where(
+              (t) =>
+                  t.status != TaskStatus.completed &&
+                  t.status != TaskStatus.cancelled,
+            )
+            .toList()
+          ..sort((a, b) {
+            final ad = a.dueDate;
+            final bd = b.dueDate;
+            if (ad == null && bd == null) {
+              return b.priority.index.compareTo(a.priority.index);
+            }
+            if (ad == null) return 1;
+            if (bd == null) return -1;
+            return ad.compareTo(bd);
+          });
+    final done =
+        tasks
+            .where(
+              (t) =>
+                  t.status == TaskStatus.completed ||
+                  t.status == TaskStatus.cancelled,
+            )
+            .toList()
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
     return SectionCard(
       title: 'Việc cần làm',
@@ -41,7 +59,9 @@ class TaskListSection extends StatelessWidget {
         icon: const Icon(Icons.add_rounded),
         tooltip: 'Thêm việc',
         onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => AddEditTaskScreen(profileId: profileId)),
+          MaterialPageRoute(
+            builder: (_) => AddEditTaskScreen(profileId: profileId),
+          ),
         ),
       ),
       child: tasks.isEmpty
@@ -54,7 +74,8 @@ class TaskListSection extends StatelessWidget {
                 for (final t in open) _TaskTile(task: t, profileId: profileId),
                 if (done.isNotEmpty) ...[
                   const Divider(),
-                  for (final t in done) _TaskTile(task: t, profileId: profileId),
+                  for (final t in done)
+                    _TaskTile(task: t, profileId: profileId),
                 ],
               ],
             ),
@@ -62,34 +83,58 @@ class TaskListSection extends StatelessWidget {
   }
 }
 
-class _TaskTile extends StatelessWidget {
+class _TaskTile extends StatefulWidget {
   final TaskItem task;
   final String profileId;
 
   const _TaskTile({required this.task, required this.profileId});
 
   @override
+  State<_TaskTile> createState() => _TaskTileState();
+}
+
+class _TaskTileState extends State<_TaskTile> {
+  bool _busy = false;
+
+  @override
   Widget build(BuildContext context) {
+    final task = widget.task;
+    final profileId = widget.profileId;
     final repo = context.read<AppRepository>();
-    final isDone = task.status == TaskStatus.completed || task.status == TaskStatus.cancelled;
-    final overdue = !isDone && task.dueDate != null && task.dueDate!.isBefore(DateTime.now()) &&
+    final isDone =
+        task.status == TaskStatus.completed ||
+        task.status == TaskStatus.cancelled;
+    final overdue =
+        !isDone &&
+        task.dueDate != null &&
+        task.dueDate!.isBefore(DateTime.now()) &&
         !task.dueDate!.isSameDayAs(DateTime.now());
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Checkbox(
         value: task.status == TaskStatus.completed,
-        onChanged: (v) {
-          if (v == true) {
-            repo.markTaskCompleted(task.id);
-          }
-        },
+        onChanged: _busy
+            ? null
+            : (v) async {
+                if (v != true) return;
+                setState(() => _busy = true);
+                await runRepositoryAction(
+                  context,
+                  () => repo.markTaskCompleted(task.id),
+                );
+                if (mounted) setState(() => _busy = false);
+              },
       ),
       title: Text(
         task.title,
         style: TextStyle(
-          decoration: task.status == TaskStatus.completed ? TextDecoration.lineThrough : null,
-          color: task.status == TaskStatus.cancelled ? context.colors.outline : null,
+          decoration: task.status == TaskStatus.completed
+              ? TextDecoration.lineThrough
+              : null,
+          color: task.status == TaskStatus.cancelled
+              ? context.colors.outline
+              : null,
         ),
       ),
       subtitle: Wrap(
@@ -111,13 +156,24 @@ class _TaskTile extends StatelessWidget {
         ],
       ),
       trailing: PopupMenuButton<String>(
-        onSelected: (v) {
+        onSelected: (v) async {
           if (v == 'edit') {
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => AddEditTaskScreen(profileId: profileId, task: task)),
+              MaterialPageRoute(
+                builder: (_) =>
+                    AddEditTaskScreen(profileId: profileId, task: task),
+              ),
             );
           } else if (v == 'delete') {
-            repo.deleteTask(task.id);
+            final confirmed = await confirmDestructiveAction(
+              context,
+              title: 'Xóa việc cần làm?',
+              message: 'Việc "${task.title}" sẽ bị xóa và không thể hoàn tác.',
+            );
+            if (!confirmed || !context.mounted) return;
+            setState(() => _busy = true);
+            await runRepositoryAction(context, () => repo.deleteTask(task.id));
+            if (mounted) setState(() => _busy = false);
           }
         },
         itemBuilder: (_) => const [
@@ -126,7 +182,9 @@ class _TaskTile extends StatelessWidget {
         ],
       ),
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => AddEditTaskScreen(profileId: profileId, task: task)),
+        MaterialPageRoute(
+          builder: (_) => AddEditTaskScreen(profileId: profileId, task: task),
+        ),
       ),
     );
   }

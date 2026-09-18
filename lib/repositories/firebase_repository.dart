@@ -6,6 +6,7 @@ import '../core/utils/app_date_utils.dart';
 import '../models/models.dart';
 import '../services/firebase_error_message.dart';
 import 'app_repository.dart';
+import 'repository_validation.dart';
 
 /// Triển khai [AppRepository] thật bằng Cloud Firestore.
 ///
@@ -418,14 +419,26 @@ class FirebaseRepository extends AppRepository {
 
   @override
   Future<void> deleteGroup(String id) async {
-    final profileIds = _profiles
-        .where((p) => p.groupId == id)
-        .map((p) => p.id)
-        .toList();
+    final serverProfiles = await _profilesRef
+        .where('groupId', isEqualTo: id)
+        .get();
+    final profileIds = serverProfiles.docs.map((doc) => doc.id).toList();
+    final documents = <DocumentReference<Map<String, dynamic>>>[];
     for (final pid in profileIds) {
-      await deleteProfile(pid);
+      documents.addAll(await _profileGraphDocuments(pid));
     }
-    await _groupsRef.doc(id).delete();
+    documents.add(_groupsRef.doc(id));
+    if (documents.length > 500) {
+      throw const RepositoryException(
+        'Nhóm có quá nhiều dữ liệu liên quan để xóa an toàn. '
+        'Không có dữ liệu nào bị xóa; vui lòng liên hệ quản trị viên.',
+      );
+    }
+    final batch = _db.batch();
+    for (final reference in documents) {
+      batch.delete(reference);
+    }
+    await batch.commit();
   }
 
   // ---------------------------------------------------------------------
@@ -441,16 +454,24 @@ class FirebaseRepository extends AppRepository {
         ? _profilesRef.doc()
         : _profilesRef.doc(profile.id);
     final now = DateTime.now();
-    final newProfile = profile.copyWith(
-      id: doc.id,
-      createdAt: now,
-      updatedAt: now,
+    final newProfile = normalizeProfileCompletion(
+      profile.copyWith(id: doc.id, createdAt: now, updatedAt: now),
+      null,
     );
-    await doc.set(newProfile.toJson());
-    await _logEvent(
-      doc.id,
-      TimelineEventType.profileCreated,
-      'Tạo hồ sơ "${newProfile.fullName}"',
+    validateProfileDates(newProfile);
+
+    final batch = _db.batch();
+    batch.set(doc, newProfile.toJson());
+    final eventDoc = doc.collection('timelineEvents').doc();
+    batch.set(
+      eventDoc,
+      TimelineEvent(
+        id: eventDoc.id,
+        profileId: doc.id,
+        type: TimelineEventType.profileCreated,
+        message: 'Tạo hồ sơ "${newProfile.fullName}"',
+        createdAt: now,
+      ).toJson(),
     );
 
     if (withDefaultStages) {
@@ -461,7 +482,6 @@ class FirebaseRepository extends AppRepository {
         'Hoàn thiện',
         'Bàn giao',
       ];
-      final batch = _db.batch();
       for (var i = 0; i < names.length; i++) {
         final stageDoc = doc.collection('stages').doc();
         final stage = WorkStage(
@@ -473,15 +493,19 @@ class FirebaseRepository extends AppRepository {
         );
         batch.set(stageDoc, stage.toJson());
       }
-      await batch.commit();
     }
+    await batch.commit();
     return newProfile;
   }
 
   @override
   Future<void> updateProfile(Profile profile) async {
     final old = profileById(profile.id);
-    final updated = profile.copyWith(updatedAt: DateTime.now());
+    final updated = normalizeProfileCompletion(
+      profile.copyWith(updatedAt: DateTime.now()),
+      old,
+    );
+    validateProfileDates(updated);
     await _profileDoc(profile.id).set(updated.toJson());
     if (old != null && old.status != updated.status) {
       await _logEvent(
@@ -527,7 +551,27 @@ class FirebaseRepository extends AppRepository {
 
   @override
   Future<void> deleteProfile(String id) async {
+    final documents = await _profileGraphDocuments(id);
+    // A Firestore batch supports at most 500 writes. Refuse before deleting
+    // anything when the graph cannot be removed atomically by the client.
+    if (documents.length > 500) {
+      throw const RepositoryException(
+        'Hồ sơ có quá nhiều dữ liệu liên quan để xóa an toàn. '
+        'Không có dữ liệu nào bị xóa; vui lòng liên hệ quản trị viên.',
+      );
+    }
+    final batch = _db.batch();
+    for (final reference in documents) {
+      batch.delete(reference);
+    }
+    await batch.commit();
+  }
+
+  Future<List<DocumentReference<Map<String, dynamic>>>> _profileGraphDocuments(
+    String id,
+  ) async {
     final doc = _profileDoc(id);
+    final documents = <DocumentReference<Map<String, dynamic>>>[];
     for (final sub in [
       'stages',
       'milestones',
@@ -538,13 +582,12 @@ class FirebaseRepository extends AppRepository {
       'timelineEvents',
     ]) {
       final snap = await doc.collection(sub).get();
-      final batch = _db.batch();
       for (final d in snap.docs) {
-        batch.delete(d.reference);
+        documents.add(d.reference);
       }
-      await batch.commit();
     }
-    await doc.delete();
+    documents.add(doc);
+    return documents;
   }
 
   // ---------------------------------------------------------------------
@@ -689,6 +732,13 @@ class FirebaseRepository extends AppRepository {
 
   @override
   Future<MoneyTransaction> addTransaction(MoneyTransaction transaction) async {
+    validatePositiveAmount(transaction.amount);
+    if (transaction.type == TransactionType.collaboratorPayment &&
+        transaction.collaboratorAssignmentId == null) {
+      throw const RepositoryException(
+        'Thanh toán cộng tác viên phải gắn với một phân công.',
+      );
+    }
     final profile = _profileDoc(transaction.profileId);
     final ref = profile.collection('transactions');
     final doc = transaction.id.isEmpty ? ref.doc() : ref.doc(transaction.id);
@@ -720,6 +770,20 @@ class FirebaseRepository extends AppRepository {
         if (!current.exists) {
           throw const RepositoryException(
             'Phân công cộng tác viên không còn tồn tại. Vui lòng tải lại dữ liệu.',
+          );
+        }
+        final currentAssignment = CollaboratorAssignment.fromJson(
+          current.data()!,
+        );
+        if (currentAssignment.isArchived) {
+          throw const RepositoryException(
+            'Phân công này đã được lưu trữ và không thể nhận thêm thanh toán.',
+          );
+        }
+        final newPaid = currentAssignment.paidAmount + t.amount;
+        if (newPaid > currentAssignment.commissionAmount) {
+          throw const RepositoryException(
+            'Số tiền trả vượt quá hoa hồng còn lại. Vui lòng tải lại dữ liệu.',
           );
         }
       }
@@ -804,7 +868,18 @@ class FirebaseRepository extends AppRepository {
 
   @override
   Future<void> deleteCollaborator(String id) async {
-    await _collaboratorsRef.doc(id).delete();
+    final wasUsed = _assignments.values.any(
+      (items) => items.any((assignment) => assignment.collaboratorId == id),
+    );
+    final ref = _collaboratorsRef.doc(id);
+    if (wasUsed) {
+      await ref.update({
+        'active': false,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } else {
+      await ref.delete();
+    }
   }
 
   @override
@@ -822,22 +897,50 @@ class FirebaseRepository extends AppRepository {
 
   @override
   Future<void> updateAssignment(CollaboratorAssignment assignment) async {
-    final updated = assignment.copyWith(updatedAt: DateTime.now());
-    final fields = updated.toJson()..remove('paidAmount');
-    await _profileDoc(assignment.profileId)
+    final doc = _profileDoc(assignment.profileId)
         .collection('collaboratorAssignments')
-        .doc(assignment.id)
-        .update(fields);
+        .doc(assignment.id);
+    await _db.runTransaction((tx) async {
+      final current = await tx.get(doc);
+      if (!current.exists) {
+        throw const RepositoryException('Phân công không còn tồn tại.');
+      }
+      final serverAssignment = CollaboratorAssignment.fromJson(current.data()!);
+      if (assignment.commissionAmount < serverAssignment.paidAmount) {
+        throw const RepositoryException(
+          'Hoa hồng không được thấp hơn số tiền đã thanh toán.',
+        );
+      }
+      final updated = assignment.copyWith(
+        paidAmount: serverAssignment.paidAmount,
+        archivedAt: serverAssignment.archivedAt,
+        updatedAt: DateTime.now(),
+      );
+      final fields = updated.toJson()..remove('paidAmount');
+      tx.update(doc, fields);
+    });
   }
 
   @override
   Future<void> deleteAssignment(String id) async {
     for (final entry in _assignments.entries) {
       if (entry.value.any((a) => a.id == id)) {
-        await _profileDoc(entry.key)
+        final doc = _profileDoc(entry.key)
             .collection('collaboratorAssignments')
-            .doc(id)
-            .delete();
+            .doc(id);
+        await _db.runTransaction((tx) async {
+          final current = await tx.get(doc);
+          if (!current.exists) return;
+          final assignment = CollaboratorAssignment.fromJson(current.data()!);
+          if (assignment.paidAmount > 0) {
+            tx.update(doc, {
+              'archivedAt': DateTime.now().toIso8601String(),
+              'updatedAt': DateTime.now().toIso8601String(),
+            });
+          } else {
+            tx.delete(doc);
+          }
+        });
         return;
       }
     }
@@ -850,6 +953,7 @@ class FirebaseRepository extends AppRepository {
     required DateTime date,
     String note = '',
   }) async {
+    validatePositiveAmount(amount);
     CollaboratorAssignment? assignment;
     for (final list in _assignments.values) {
       final match = list.where((a) => a.id == assignmentId);
@@ -918,22 +1022,26 @@ class FirebaseRepository extends AppRepository {
     final ref = _profileDoc(task.profileId).collection('tasks');
     final doc = task.id.isEmpty ? ref.doc() : ref.doc(task.id);
     final now = DateTime.now();
-    final t = TaskItem(
-      id: doc.id,
-      profileId: task.profileId,
-      title: task.title,
-      description: task.description,
-      status: task.status,
-      priority: task.priority,
-      dueDate: task.dueDate,
-      waitingReason: task.waitingReason,
-      waitingSince: task.waitingSince,
-      expectedResponseDate: task.expectedResponseDate,
-      completedAt: task.completedAt,
-      createdAt: now,
-      updatedAt: now,
-      note: task.note,
+    final t = normalizeTaskCompletion(
+      TaskItem(
+        id: doc.id,
+        profileId: task.profileId,
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        priority: task.priority,
+        dueDate: task.dueDate,
+        waitingReason: task.waitingReason,
+        waitingSince: task.waitingSince,
+        expectedResponseDate: task.expectedResponseDate,
+        completedAt: task.completedAt,
+        createdAt: now,
+        updatedAt: now,
+        note: task.note,
+      ),
+      null,
     );
+    validateTaskDates(t);
     await doc.set(t.toJson());
     await _logEvent(
       t.profileId,
@@ -947,7 +1055,11 @@ class FirebaseRepository extends AppRepository {
   @override
   Future<void> updateTask(TaskItem task) async {
     final old = _findTask(task.id);
-    final updated = task.copyWith(updatedAt: DateTime.now());
+    final updated = normalizeTaskCompletion(
+      task.copyWith(updatedAt: DateTime.now()),
+      old,
+    );
+    validateTaskDates(updated);
     await _profileDoc(task.profileId)
         .collection('tasks')
         .doc(task.id)

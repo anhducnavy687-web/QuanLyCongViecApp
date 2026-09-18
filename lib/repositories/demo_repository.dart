@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../core/utils/app_date_utils.dart';
 import '../models/models.dart';
 import 'app_repository.dart';
+import 'repository_validation.dart';
 import 'demo_seed_data.dart';
 
 /// Repository chạy hoàn toàn trong bộ nhớ (không cần Firebase, không cần
@@ -124,8 +125,9 @@ class DemoRepository extends AppRepository {
       _assignments.where((a) => a.profileId == profileId).toList();
 
   @override
-  List<CollaboratorAssignment> assignmentsOfCollaborator(String collaboratorId) =>
-      _assignments.where((a) => a.collaboratorId == collaboratorId).toList();
+  List<CollaboratorAssignment> assignmentsOfCollaborator(
+    String collaboratorId,
+  ) => _assignments.where((a) => a.collaboratorId == collaboratorId).toList();
 
   @override
   List<Attachment> attachmentsOf(String profileId) =>
@@ -143,8 +145,11 @@ class DemoRepository extends AppRepository {
 
   @override
   List<TaskItem> get allOpenTasks => _tasks
-      .where((t) =>
-          t.status != TaskStatus.completed && t.status != TaskStatus.cancelled)
+      .where(
+        (t) =>
+            t.status != TaskStatus.completed &&
+            t.status != TaskStatus.cancelled,
+      )
       .toList();
 
   @override
@@ -175,7 +180,10 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<WorkGroup> addGroup({required String name, String description = ''}) async {
+  Future<WorkGroup> addGroup({
+    required String name,
+    String description = '',
+  }) async {
     final group = WorkGroup(
       id: _uuid.v4(),
       name: name,
@@ -199,7 +207,10 @@ class DemoRepository extends AppRepository {
   @override
   Future<void> deleteGroup(String id) async {
     _groups.removeWhere((g) => g.id == id);
-    final profileIds = _profiles.where((p) => p.groupId == id).map((p) => p.id).toList();
+    final profileIds = _profiles
+        .where((p) => p.groupId == id)
+        .map((p) => p.id)
+        .toList();
     for (final pid in profileIds) {
       await deleteProfile(pid);
     }
@@ -211,27 +222,36 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Profile> addProfile(Profile profile, {bool withDefaultStages = true}) async {
+  Future<Profile> addProfile(
+    Profile profile, {
+    bool withDefaultStages = true,
+  }) async {
     final id = profile.id.isEmpty ? _uuid.v4() : profile.id;
-    final newProfile = profile.copyWith(
-      id: id,
-      createdAt: _now,
-      updatedAt: _now,
+    final newProfile = normalizeProfileCompletion(
+      profile.copyWith(id: id, createdAt: _now, updatedAt: _now),
+      null,
     );
+    validateProfileDates(newProfile);
     _profiles.add(newProfile);
     if (withDefaultStages) {
       final names = _defaultStageNames;
       for (var i = 0; i < names.length; i++) {
-        _stages.add(WorkStage(
-          id: _uuid.v4(),
-          profileId: id,
-          name: names[i],
-          order: i,
-          status: i == 0 ? StageStatus.inProgress : StageStatus.pending,
-        ));
+        _stages.add(
+          WorkStage(
+            id: _uuid.v4(),
+            profileId: id,
+            name: names[i],
+            order: i,
+            status: i == 0 ? StageStatus.inProgress : StageStatus.pending,
+          ),
+        );
       }
     }
-    _logEvent(id, TimelineEventType.profileCreated, 'Tạo hồ sơ "${newProfile.fullName}"');
+    _logEvent(
+      id,
+      TimelineEventType.profileCreated,
+      'Tạo hồ sơ "${newProfile.fullName}"',
+    );
     notifyListeners();
     return newProfile;
   }
@@ -249,7 +269,11 @@ class DemoRepository extends AppRepository {
     final idx = _profiles.indexWhere((p) => p.id == profile.id);
     if (idx == -1) return;
     final old = _profiles[idx];
-    final updated = profile.copyWith(updatedAt: _now);
+    final updated = normalizeProfileCompletion(
+      profile.copyWith(updatedAt: _now),
+      old,
+    );
+    validateProfileDates(updated);
     _profiles[idx] = updated;
     if (old.status != updated.status) {
       _logEvent(
@@ -266,11 +290,19 @@ class DemoRepository extends AppRepository {
               : 'Bắt đầu chờ phản hồi',
         );
       } else if (old.status == ProfileStatus.waiting) {
-        _logEvent(updated.id, TimelineEventType.waitingResolved, 'Kết thúc chờ');
+        _logEvent(
+          updated.id,
+          TimelineEventType.waitingResolved,
+          'Kết thúc chờ',
+        );
       }
     }
     if (old.deadline != updated.deadline) {
-      _logEvent(updated.id, TimelineEventType.profileUpdated, _describeDeadlineChange(old, updated));
+      _logEvent(
+        updated.id,
+        TimelineEventType.profileUpdated,
+        _describeDeadlineChange(old, updated),
+      );
     }
     notifyListeners();
   }
@@ -326,7 +358,10 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> reorderStages(String profileId, List<String> orderedStageIds) async {
+  Future<void> reorderStages(
+    String profileId,
+    List<String> orderedStageIds,
+  ) async {
     for (var i = 0; i < orderedStageIds.length; i++) {
       final idx = _stages.indexWhere((s) => s.id == orderedStageIds[i]);
       if (idx != -1) {
@@ -354,7 +389,10 @@ class DemoRepository extends AppRepository {
     if (nextPendingIdx != -1) {
       final next = siblings[nextPendingIdx];
       final gIdx = _stages.indexWhere((s) => s.id == next.id);
-      _stages[gIdx] = next.copyWith(status: StageStatus.inProgress, startDate: _now);
+      _stages[gIdx] = next.copyWith(
+        status: StageStatus.inProgress,
+        startDate: _now,
+      );
     }
     _logEvent(
       stage.profileId,
@@ -390,7 +428,9 @@ class DemoRepository extends AppRepository {
 
   @override
   Future<Milestone> addMilestone(Milestone milestone) async {
-    final m = milestone.id.isEmpty ? milestone.copyWith(id: _uuid.v4()) : milestone;
+    final m = milestone.id.isEmpty
+        ? milestone.copyWith(id: _uuid.v4())
+        : milestone;
     _milestones.add(m);
     notifyListeners();
     return m;
@@ -416,6 +456,13 @@ class DemoRepository extends AppRepository {
 
   @override
   Future<MoneyTransaction> addTransaction(MoneyTransaction transaction) async {
+    validatePositiveAmount(transaction.amount);
+    if (transaction.type == TransactionType.collaboratorPayment &&
+        transaction.collaboratorAssignmentId == null) {
+      throw const RepositoryException(
+        'Thanh toán cộng tác viên phải gắn với một phân công.',
+      );
+    }
     final t = transaction.id.isEmpty
         ? transaction.copyWith(id: _uuid.v4(), createdAt: _now)
         : transaction;
@@ -424,7 +471,9 @@ class DemoRepository extends AppRepository {
     // Nếu là trả hoa hồng, cập nhật cache paidAmount trên assignment.
     if (t.type == TransactionType.collaboratorPayment &&
         t.collaboratorAssignmentId != null) {
-      final idx = _assignments.indexWhere((a) => a.id == t.collaboratorAssignmentId);
+      final idx = _assignments.indexWhere(
+        (a) => a.id == t.collaboratorAssignmentId,
+      );
       if (idx != -1) {
         final current = _assignments[idx];
         _assignments[idx] = current.copyWith(
@@ -450,7 +499,9 @@ class DemoRepository extends AppRepository {
     _transactions.removeWhere((tr) => tr.id == id);
     if (t.type == TransactionType.collaboratorPayment &&
         t.collaboratorAssignmentId != null) {
-      final idx = _assignments.indexWhere((a) => a.id == t.collaboratorAssignmentId);
+      final idx = _assignments.indexWhere(
+        (a) => a.id == t.collaboratorAssignmentId,
+      );
       if (idx != -1) {
         final current = _assignments[idx];
         final newPaid = current.paidAmount - t.amount;
@@ -496,13 +547,25 @@ class DemoRepository extends AppRepository {
 
   @override
   Future<void> deleteCollaborator(String id) async {
-    _collaborators.removeWhere((c) => c.id == id);
-    _assignments.removeWhere((a) => a.collaboratorId == id);
+    final used = _assignments.any((a) => a.collaboratorId == id);
+    if (used) {
+      final index = _collaborators.indexWhere((c) => c.id == id);
+      if (index != -1) {
+        _collaborators[index] = _collaborators[index].copyWith(
+          active: false,
+          updatedAt: _now,
+        );
+      }
+    } else {
+      _collaborators.removeWhere((c) => c.id == id);
+    }
     notifyListeners();
   }
 
   @override
-  Future<CollaboratorAssignment> addAssignment(CollaboratorAssignment assignment) async {
+  Future<CollaboratorAssignment> addAssignment(
+    CollaboratorAssignment assignment,
+  ) async {
     final a = assignment.id.isEmpty
         ? assignment.copyWith(id: _uuid.v4(), createdAt: _now, updatedAt: _now)
         : assignment;
@@ -515,14 +578,33 @@ class DemoRepository extends AppRepository {
   Future<void> updateAssignment(CollaboratorAssignment assignment) async {
     final idx = _assignments.indexWhere((a) => a.id == assignment.id);
     if (idx == -1) return;
-    _assignments[idx] = assignment.copyWith(updatedAt: _now);
+    final current = _assignments[idx];
+    if (assignment.commissionAmount < current.paidAmount) {
+      throw const RepositoryException(
+        'Hoa hồng không được thấp hơn số tiền đã thanh toán.',
+      );
+    }
+    _assignments[idx] = assignment.copyWith(
+      paidAmount: current.paidAmount,
+      archivedAt: current.archivedAt,
+      updatedAt: _now,
+    );
     notifyListeners();
   }
 
   @override
   Future<void> deleteAssignment(String id) async {
-    _assignments.removeWhere((a) => a.id == id);
-    _transactions.removeWhere((t) => t.collaboratorAssignmentId == id);
+    final index = _assignments.indexWhere((a) => a.id == id);
+    if (index == -1) return;
+    final assignment = _assignments[index];
+    if (assignment.paidAmount > 0) {
+      _assignments[index] = assignment.copyWith(
+        archivedAt: _now,
+        updatedAt: _now,
+      );
+    } else {
+      _assignments.removeAt(index);
+    }
     notifyListeners();
   }
 
@@ -533,19 +615,30 @@ class DemoRepository extends AppRepository {
     required DateTime date,
     String note = '',
   }) async {
+    validatePositiveAmount(amount);
     final idx = _assignments.indexWhere((a) => a.id == assignmentId);
     if (idx == -1) return;
     final assignment = _assignments[idx];
-    await addTransaction(MoneyTransaction(
-      id: '',
-      profileId: assignment.profileId,
-      type: TransactionType.collaboratorPayment,
-      amount: amount,
-      date: date,
-      note: note,
-      createdAt: _now,
-      collaboratorAssignmentId: assignmentId,
-    ));
+    if (assignment.isArchived) {
+      throw const RepositoryException(
+        'Phân công này đã được lưu trữ và không thể nhận thêm thanh toán.',
+      );
+    }
+    if (assignment.paidAmount + amount > assignment.commissionAmount) {
+      throw const RepositoryException('Số tiền trả vượt quá hoa hồng còn lại.');
+    }
+    await addTransaction(
+      MoneyTransaction(
+        id: '',
+        profileId: assignment.profileId,
+        type: TransactionType.collaboratorPayment,
+        amount: amount,
+        date: date,
+        note: note,
+        createdAt: _now,
+        collaboratorAssignmentId: assignmentId,
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------
@@ -554,7 +647,9 @@ class DemoRepository extends AppRepository {
 
   @override
   Future<Attachment> addAttachment(Attachment attachment) async {
-    final a = attachment.id.isEmpty ? attachment.copyWith(id: _uuid.v4()) : attachment;
+    final a = attachment.id.isEmpty
+        ? attachment.copyWith(id: _uuid.v4())
+        : attachment;
     _attachments.add(a);
     notifyListeners();
     return a;
@@ -583,7 +678,7 @@ class DemoRepository extends AppRepository {
 
   @override
   Future<TaskItem> addTask(TaskItem task) async {
-    final t = task.id.isEmpty
+    final raw = task.id.isEmpty
         ? TaskItem(
             id: _uuid.v4(),
             profileId: task.profileId,
@@ -601,8 +696,14 @@ class DemoRepository extends AppRepository {
             note: task.note,
           )
         : task;
+    final t = normalizeTaskCompletion(raw, null);
+    validateTaskDates(t);
     _tasks.add(t);
-    _logEvent(t.profileId, TimelineEventType.taskCreated, 'Tạo việc "${t.title}"');
+    _logEvent(
+      t.profileId,
+      TimelineEventType.taskCreated,
+      'Tạo việc "${t.title}"',
+    );
     _touchProfile(t.profileId);
     return t;
   }
@@ -612,7 +713,11 @@ class DemoRepository extends AppRepository {
     final idx = _tasks.indexWhere((t) => t.id == task.id);
     if (idx == -1) return;
     final old = _tasks[idx];
-    final updated = task.copyWith(updatedAt: _now);
+    final updated = normalizeTaskCompletion(
+      task.copyWith(updatedAt: _now),
+      old,
+    );
+    validateTaskDates(updated);
     _tasks[idx] = updated;
     if (old.status != updated.status &&
         updated.status == TaskStatus.completed) {
@@ -660,12 +765,14 @@ class DemoRepository extends AppRepository {
   }
 
   void _logEvent(String profileId, TimelineEventType type, String message) {
-    _timelineEvents.add(TimelineEvent(
-      id: _uuid.v4(),
-      profileId: profileId,
-      type: type,
-      message: message,
-      createdAt: _now,
-    ));
+    _timelineEvents.add(
+      TimelineEvent(
+        id: _uuid.v4(),
+        profileId: profileId,
+        type: type,
+        message: message,
+        createdAt: _now,
+      ),
+    );
   }
 }

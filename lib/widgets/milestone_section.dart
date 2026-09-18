@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../core/extensions/context_extensions.dart';
 import '../core/extensions/datetime_extensions.dart';
 import '../core/theme/app_colors.dart';
+import '../core/utils/confirm_destructive_action.dart';
+import '../core/utils/repository_action.dart';
 import '../models/models.dart';
 import '../repositories/app_repository.dart';
 import 'section_card.dart';
@@ -40,7 +42,10 @@ class MilestoneSection extends StatelessWidget {
         onPressed: () => _showEditDialog(context, repo, null),
       ),
       child: milestones.isEmpty
-          ? Text('Chưa có mốc thời gian nào', style: context.textTheme.bodySmall)
+          ? Text(
+              'Chưa có mốc thời gian nào',
+              style: context.textTheme.bodySmall,
+            )
           : Column(
               children: milestones.map((m) {
                 final timing = m.timing();
@@ -61,27 +66,49 @@ class MilestoneSection extends StatelessWidget {
                     style: TextStyle(color: color, fontWeight: FontWeight.w600),
                   ),
                   trailing: PopupMenuButton<String>(
-                    onSelected: (v) {
+                    onSelected: (v) async {
                       if (v == 'toggle') {
-                        repo.updateMilestone(m.copyWith(
-                          status: m.status == MilestoneStatus.completed
-                              ? MilestoneStatus.pending
-                              : MilestoneStatus.completed,
-                          completedAt: m.status == MilestoneStatus.completed ? null : DateTime.now(),
-                          clearCompletedAt: m.status != MilestoneStatus.completed ? false : true,
-                        ));
+                        await runRepositoryAction(
+                          context,
+                          () => repo.updateMilestone(
+                            m.copyWith(
+                              status: m.status == MilestoneStatus.completed
+                                  ? MilestoneStatus.pending
+                                  : MilestoneStatus.completed,
+                              completedAt: m.status == MilestoneStatus.completed
+                                  ? null
+                                  : DateTime.now(),
+                              clearCompletedAt:
+                                  m.status != MilestoneStatus.completed
+                                  ? false
+                                  : true,
+                            ),
+                          ),
+                        );
                       } else if (v == 'edit') {
                         _showEditDialog(context, repo, m);
                       } else if (v == 'delete') {
-                        repo.deleteMilestone(m.id);
+                        final confirmed = await confirmDestructiveAction(
+                          context,
+                          title: 'Xóa mốc thời gian?',
+                          message:
+                              'Mốc "${m.title}" sẽ bị xóa và không thể hoàn tác.',
+                        );
+                        if (!confirmed || !context.mounted) return;
+                        await runRepositoryAction(
+                          context,
+                          () => repo.deleteMilestone(m.id),
+                        );
                       }
                     },
                     itemBuilder: (ctx) => [
                       PopupMenuItem(
                         value: 'toggle',
-                        child: Text(m.status == MilestoneStatus.completed
-                            ? 'Bỏ đánh dấu hoàn thành'
-                            : 'Đánh dấu hoàn thành'),
+                        child: Text(
+                          m.status == MilestoneStatus.completed
+                              ? 'Bỏ đánh dấu hoàn thành'
+                              : 'Đánh dấu hoàn thành',
+                        ),
                       ),
                       const PopupMenuItem(value: 'edit', child: Text('Sửa')),
                       const PopupMenuItem(value: 'delete', child: Text('Xóa')),
@@ -93,14 +120,21 @@ class MilestoneSection extends StatelessWidget {
     );
   }
 
-  void _showEditDialog(BuildContext context, AppRepository repo, Milestone? milestone) {
+  void _showEditDialog(
+    BuildContext context,
+    AppRepository repo,
+    Milestone? milestone,
+  ) {
     final ctrl = TextEditingController(text: milestone?.title ?? '');
     DateTime dueDate = milestone?.dueDate ?? DateTime.now();
+    bool saving = false;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          title: Text(milestone == null ? 'Thêm mốc thời gian' : 'Sửa mốc thời gian'),
+          title: Text(
+            milestone == null ? 'Thêm mốc thời gian' : 'Sửa mốc thời gian',
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,24 +163,50 @@ class MilestoneSection extends StatelessWidget {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
-              onPressed: () {
-                final title = ctrl.text.trim();
-                if (title.isEmpty) return;
-                if (milestone == null) {
-                  repo.addMilestone(Milestone(
-                    id: '',
-                    profileId: profileId,
-                    title: title,
-                    dueDate: dueDate,
-                  ));
-                } else {
-                  repo.updateMilestone(milestone.copyWith(title: title, dueDate: dueDate));
-                }
-                Navigator.pop(ctx);
-              },
-              child: const Text('Lưu'),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final title = ctrl.text.trim();
+                      if (title.isEmpty) return;
+                      setState(() => saving = true);
+                      final saved = await runRepositoryAction(
+                        context,
+                        () async {
+                          if (milestone == null) {
+                            await repo.addMilestone(
+                              Milestone(
+                                id: '',
+                                profileId: profileId,
+                                title: title,
+                                dueDate: dueDate,
+                              ),
+                            );
+                          } else {
+                            await repo.updateMilestone(
+                              milestone.copyWith(
+                                title: title,
+                                dueDate: dueDate,
+                              ),
+                            );
+                          }
+                        },
+                      );
+                      if (!ctx.mounted) return;
+                      if (saved) Navigator.pop(ctx);
+                      if (!saved) setState(() => saving = false);
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Lưu'),
             ),
           ],
         ),

@@ -122,11 +122,25 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
       return;
     }
     if (_hasDeadline) {
+      if (_deadline == null) {
+        setState(() => _deadlineError = 'Vui lòng chọn hạn hoàn thành');
+        return;
+      }
       final err = Validators.deadlineNotBeforeStart(_startDate, _deadline);
       if (err != null) {
         setState(() => _deadlineError = err);
         return;
       }
+    }
+    if (_status == ProfileStatus.waiting &&
+        _waitingSince != null &&
+        _expectedResponseDate != null &&
+        _expectedResponseDate!.isBefore(_waitingSince!)) {
+      context.showSnackBar(
+        'Ngày dự kiến phản hồi không được trước ngày bắt đầu chờ',
+        isError: true,
+      );
+      return;
     }
 
     setState(() => _saving = true);
@@ -158,7 +172,11 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
             totalAmount: amount,
             note: _noteCtrl.text.trim(),
             clearDeadline: !_hasDeadline,
-            completedAt: _status == ProfileStatus.completed ? now : null,
+            completedAt: _status == ProfileStatus.completed
+                ? (widget.profile!.status == ProfileStatus.completed
+                      ? widget.profile!.completedAt
+                      : now)
+                : null,
             clearCompletedAt: _status != ProfileStatus.completed,
             waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
             clearWaitingReason: !isWaiting,
@@ -185,6 +203,7 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
             note: _noteCtrl.text.trim(),
             createdAt: now,
             updatedAt: now,
+            completedAt: _status == ProfileStatus.completed ? now : null,
             waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
             waitingSince: isWaiting ? _waitingSince : null,
             expectedResponseDate: isWaiting ? _expectedResponseDate : null,

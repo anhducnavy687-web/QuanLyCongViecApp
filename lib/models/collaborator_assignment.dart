@@ -14,6 +14,7 @@ class CollaboratorAssignment {
   final String note;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? archivedAt;
 
   const CollaboratorAssignment({
     required this.id,
@@ -25,7 +26,10 @@ class CollaboratorAssignment {
     this.note = '',
     required this.createdAt,
     required this.updatedAt,
+    this.archivedAt,
   });
+
+  bool get isArchived => archivedAt != null;
 
   num get remainingAmount {
     final remaining = commissionAmount - paidAmount;
@@ -42,6 +46,8 @@ class CollaboratorAssignment {
     String? note,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? archivedAt,
+    bool clearArchivedAt = false,
   }) {
     return CollaboratorAssignment(
       id: id ?? this.id,
@@ -53,6 +59,7 @@ class CollaboratorAssignment {
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      archivedAt: clearArchivedAt ? null : (archivedAt ?? this.archivedAt),
     );
   }
 
@@ -67,6 +74,9 @@ class CollaboratorAssignment {
       note: json['note'] as String? ?? '',
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      archivedAt: json['archivedAt'] != null
+          ? DateTime.parse(json['archivedAt'] as String)
+          : null,
     );
   }
 
@@ -81,6 +91,7 @@ class CollaboratorAssignment {
       'note': note,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'archivedAt': archivedAt?.toIso8601String(),
     };
   }
 }
