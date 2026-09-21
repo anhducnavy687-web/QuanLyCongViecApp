@@ -180,7 +180,7 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<WorkGroup> addGroup({
+  Future<WorkGroup> addGroupImpl({
     required String name,
     String description = '',
   }) async {
@@ -197,7 +197,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateGroup(WorkGroup group) async {
+  Future<void> updateGroupImpl(WorkGroup group) async {
     final idx = _groups.indexWhere((g) => g.id == group.id);
     if (idx == -1) return;
     _groups[idx] = group.copyWith(updatedAt: _now);
@@ -205,7 +205,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteGroup(String id) async {
+  Future<void> deleteGroupImpl(String id) async {
     _groups.removeWhere((g) => g.id == id);
     final profileIds = _profiles
         .where((p) => p.groupId == id)
@@ -222,7 +222,7 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Profile> addProfile(
+  Future<Profile> addProfileImpl(
     Profile profile, {
     bool withDefaultStages = true,
   }) async {
@@ -265,7 +265,7 @@ class DemoRepository extends AppRepository {
   ];
 
   @override
-  Future<void> updateProfile(Profile profile) async {
+  Future<void> updateProfileImpl(Profile profile) async {
     final idx = _profiles.indexWhere((p) => p.id == profile.id);
     if (idx == -1) return;
     final old = _profiles[idx];
@@ -319,7 +319,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteProfile(String id) async {
+  Future<void> deleteProfileImpl(String id) async {
     _profiles.removeWhere((p) => p.id == id);
     _stages.removeWhere((s) => s.profileId == id);
     _milestones.removeWhere((m) => m.profileId == id);
@@ -336,7 +336,7 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<WorkStage> addStage(WorkStage stage) async {
+  Future<WorkStage> addStageImpl(WorkStage stage) async {
     final newStage = stage.id.isEmpty ? stage.copyWith(id: _uuid.v4()) : stage;
     _stages.add(newStage);
     notifyListeners();
@@ -344,7 +344,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateStage(WorkStage stage) async {
+  Future<void> updateStageImpl(WorkStage stage) async {
     final idx = _stages.indexWhere((s) => s.id == stage.id);
     if (idx == -1) return;
     _stages[idx] = stage;
@@ -352,13 +352,13 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteStage(String id) async {
+  Future<void> deleteStageImpl(String id) async {
     _stages.removeWhere((s) => s.id == id);
     notifyListeners();
   }
 
   @override
-  Future<void> reorderStages(
+  Future<void> reorderStagesImpl(
     String profileId,
     List<String> orderedStageIds,
   ) async {
@@ -372,7 +372,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> markStageCompleted(String stageId) async {
+  Future<void> markStageCompletedImpl(String stageId) async {
     final idx = _stages.indexWhere((s) => s.id == stageId);
     if (idx == -1) return;
     final stage = _stages[idx];
@@ -403,7 +403,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> setStageInProgress(String stageId) async {
+  Future<void> setStageInProgressImpl(String stageId) async {
     final idx = _stages.indexWhere((s) => s.id == stageId);
     if (idx == -1) return;
     final stage = _stages[idx];
@@ -427,7 +427,7 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Milestone> addMilestone(Milestone milestone) async {
+  Future<Milestone> addMilestoneImpl(Milestone milestone) async {
     final m = milestone.id.isEmpty
         ? milestone.copyWith(id: _uuid.v4())
         : milestone;
@@ -437,7 +437,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateMilestone(Milestone milestone) async {
+  Future<void> updateMilestoneImpl(Milestone milestone) async {
     final idx = _milestones.indexWhere((m) => m.id == milestone.id);
     if (idx == -1) return;
     _milestones[idx] = milestone;
@@ -445,7 +445,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteMilestone(String id) async {
+  Future<void> deleteMilestoneImpl(String id) async {
     _milestones.removeWhere((m) => m.id == id);
     notifyListeners();
   }
@@ -455,7 +455,9 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<MoneyTransaction> addTransaction(MoneyTransaction transaction) async {
+  Future<MoneyTransaction> addTransactionImpl(
+    MoneyTransaction transaction,
+  ) async {
     validatePositiveAmount(transaction.amount);
     if (transaction.type == TransactionType.collaboratorPayment &&
         transaction.collaboratorAssignmentId == null) {
@@ -492,7 +494,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteTransaction(String id) async {
+  Future<void> deleteTransactionImpl(String id) async {
     final tx = _transactions.where((t) => t.id == id).toList();
     if (tx.isEmpty) return;
     final t = tx.first;
@@ -519,7 +521,7 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Collaborator> addCollaborator({
+  Future<Collaborator> addCollaboratorImpl({
     required String name,
     String phone = '',
     String note = '',
@@ -538,7 +540,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateCollaborator(Collaborator collaborator) async {
+  Future<void> updateCollaboratorImpl(Collaborator collaborator) async {
     final idx = _collaborators.indexWhere((c) => c.id == collaborator.id);
     if (idx == -1) return;
     _collaborators[idx] = collaborator.copyWith(updatedAt: _now);
@@ -546,7 +548,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteCollaborator(String id) async {
+  Future<void> deleteCollaboratorImpl(String id) async {
     final used = _assignments.any((a) => a.collaboratorId == id);
     if (used) {
       final index = _collaborators.indexWhere((c) => c.id == id);
@@ -563,7 +565,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<CollaboratorAssignment> addAssignment(
+  Future<CollaboratorAssignment> addAssignmentImpl(
     CollaboratorAssignment assignment,
   ) async {
     final a = assignment.id.isEmpty
@@ -575,7 +577,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateAssignment(CollaboratorAssignment assignment) async {
+  Future<void> updateAssignmentImpl(CollaboratorAssignment assignment) async {
     final idx = _assignments.indexWhere((a) => a.id == assignment.id);
     if (idx == -1) return;
     final current = _assignments[idx];
@@ -593,7 +595,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteAssignment(String id) async {
+  Future<void> deleteAssignmentImpl(String id) async {
     final index = _assignments.indexWhere((a) => a.id == id);
     if (index == -1) return;
     final assignment = _assignments[index];
@@ -609,7 +611,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> payCommission({
+  Future<void> payCommissionImpl({
     required String assignmentId,
     required num amount,
     required DateTime date,
@@ -646,7 +648,7 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Attachment> addAttachment(Attachment attachment) async {
+  Future<Attachment> addAttachmentImpl(Attachment attachment) async {
     final a = attachment.id.isEmpty
         ? attachment.copyWith(id: _uuid.v4())
         : attachment;
@@ -656,7 +658,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> renameAttachment(String id, String newFileName) async {
+  Future<void> renameAttachmentImpl(String id, String newFileName) async {
     final idx = _attachments.indexWhere((a) => a.id == id);
     if (idx == -1) return;
     _attachments[idx] = _attachments[idx].copyWith(
@@ -667,7 +669,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteAttachment(String id) async {
+  Future<void> deleteAttachmentImpl(String id) async {
     _attachments.removeWhere((a) => a.id == id);
     notifyListeners();
   }
@@ -677,7 +679,7 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<TaskItem> addTask(TaskItem task) async {
+  Future<TaskItem> addTaskImpl(TaskItem task) async {
     final raw = task.id.isEmpty
         ? TaskItem(
             id: _uuid.v4(),
@@ -709,7 +711,7 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateTask(TaskItem task) async {
+  Future<void> updateTaskImpl(TaskItem task) async {
     final idx = _tasks.indexWhere((t) => t.id == task.id);
     if (idx == -1) return;
     final old = _tasks[idx];
@@ -731,13 +733,13 @@ class DemoRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteTask(String id) async {
+  Future<void> deleteTaskImpl(String id) async {
     _tasks.removeWhere((t) => t.id == id);
     notifyListeners();
   }
 
   @override
-  Future<void> markTaskCompleted(String id) async {
+  Future<void> markTaskCompletedImpl(String id) async {
     final idx = _tasks.indexWhere((t) => t.id == id);
     if (idx == -1) return;
     final task = _tasks[idx];
@@ -759,7 +761,7 @@ class DemoRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<void> addTimelineNote(String profileId, String message) async {
+  Future<void> addTimelineNoteImpl(String profileId, String message) async {
     _logEvent(profileId, TimelineEventType.note, message);
     notifyListeners();
   }

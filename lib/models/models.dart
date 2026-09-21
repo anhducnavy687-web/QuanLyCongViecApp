@@ -1,4 +1,5 @@
 export 'attachment.dart';
+export 'export_snapshot.dart';
 export 'collaborator.dart';
 export 'collaborator_assignment.dart';
 export 'milestone.dart';

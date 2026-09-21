@@ -1,5 +1,6 @@
 /// Các hằng số dùng chung trong toàn bộ ứng dụng.
 class AppConstants {
+  static const String appVersion = '1.0.0+1';
   AppConstants._();
 
   static const String appName = 'Quản Lý Công Việc';

@@ -7,11 +7,25 @@ import '../../core/responsive/responsive.dart';
 import '../../navigation/app_session.dart';
 import '../../navigation/theme_controller.dart';
 import '../../repositories/demo_repository.dart';
+import '../../repositories/app_repository.dart';
+import '../../services/backup_service.dart';
 import '../../services/connectivity_service.dart';
+import '../../services/excel_export_service.dart';
+import '../../services/export_snapshot_validator.dart';
+import '../../services/file_download_service.dart';
 import '../collaborators/collaborators_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({
+    super.key,
+    this.backupService = const BackupService(),
+    this.excelExportService = const ExcelExportService(),
+    this.fileDelivery,
+  });
+
+  final BackupService backupService;
+  final ExcelExportService excelExportService;
+  final ExportFileDelivery? fileDelivery;
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +127,14 @@ class SettingsScreen extends StatelessWidget {
                 ],
               ),
             ),
+            _SectionLabel('Sao lưu & dữ liệu'),
+            _DataExportCard(
+              repository: session.repository,
+              isDemoMode: session.isDemoMode,
+              backupService: backupService,
+              excelExportService: excelExportService,
+              fileDelivery: fileDelivery,
+            ),
             _SectionLabel('Giới thiệu'),
             const Card(
               margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -152,6 +174,111 @@ class SettingsScreen extends StatelessWidget {
               session.signOut();
             },
             child: const Text('Đồng ý'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataExportCard extends StatefulWidget {
+  const _DataExportCard({
+    required this.repository,
+    required this.isDemoMode,
+    required this.backupService,
+    required this.excelExportService,
+    this.fileDelivery,
+  });
+
+  final AppRepository? repository;
+  final bool isDemoMode;
+  final BackupService backupService;
+  final ExcelExportService excelExportService;
+  final ExportFileDelivery? fileDelivery;
+
+  @override
+  State<_DataExportCard> createState() => _DataExportCardState();
+}
+
+class _DataExportCardState extends State<_DataExportCard> {
+  bool _busy = false;
+
+  Future<void> _export({required bool excel}) async {
+    if (_busy || widget.repository == null) return;
+    setState(() => _busy = true);
+    try {
+      final snapshot = await widget.repository!.createExportSnapshot();
+      final file = excel
+          ? widget.excelExportService.createWorkbook(snapshot)
+          : widget.backupService.createJsonBackup(snapshot);
+      final delivery = widget.fileDelivery ?? createFileDownloadService();
+      await delivery.deliver(
+        bytes: file.bytes,
+        fileName: file.fileName,
+        mimeType: file.mimeType,
+      );
+      if (!mounted) return;
+      context.showSnackBar(
+        excel
+            ? 'Đã gửi yêu cầu tải file Excel cho trình duyệt.'
+            : 'Đã gửi yêu cầu tải file sao lưu cho trình duyệt.',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = switch (error) {
+        RepositoryException() => error.message,
+        ExportValidationException() => error.message,
+        _ => 'Không thể tạo file. Vui lòng thử lại.',
+      };
+      context.showSnackBar(message, isError: true);
+      assert(() {
+        debugPrint('Export failed: ${error.runtimeType}');
+        return true;
+      }());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.backup_outlined),
+            title: const Text('Sao lưu dữ liệu'),
+            subtitle: const Text(
+              'Tạo bản JSON có thể dùng để khôi phục dữ liệu sau này',
+            ),
+            trailing: _busy
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download_rounded),
+            onTap: _busy ? null : () => _export(excel: false),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.table_view_outlined),
+            title: const Text('Xuất Excel'),
+            subtitle: const Text('Tạo bảng dữ liệu để xem, lưu trữ và in'),
+            trailing: const Icon(Icons.download_rounded),
+            onTap: _busy ? null : () => _export(excel: true),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Text(
+              '${widget.isDemoMode ? 'Đây là dữ liệu Demo hiện tại. ' : ''}'
+              'File sao lưu có thể chứa thông tin cá nhân, ghi chú và dữ liệu tài chính. '
+              'Hãy lưu file ở nơi an toàn.',
+              style: context.textTheme.bodySmall?.copyWith(
+                color: context.colors.onSurfaceVariant,
+              ),
+            ),
           ),
         ],
       ),

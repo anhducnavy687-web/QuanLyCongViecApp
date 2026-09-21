@@ -394,7 +394,7 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<WorkGroup> addGroup({
+  Future<WorkGroup> addGroupImpl({
     required String name,
     String description = '',
   }) async {
@@ -412,13 +412,13 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateGroup(WorkGroup group) async {
+  Future<void> updateGroupImpl(WorkGroup group) async {
     final updated = group.copyWith(updatedAt: DateTime.now());
     await _groupsRef.doc(group.id).set(updated.toJson());
   }
 
   @override
-  Future<void> deleteGroup(String id) async {
+  Future<void> deleteGroupImpl(String id) async {
     final serverProfiles = await _profilesRef
         .where('groupId', isEqualTo: id)
         .get();
@@ -446,7 +446,7 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Profile> addProfile(
+  Future<Profile> addProfileImpl(
     Profile profile, {
     bool withDefaultStages = true,
   }) async {
@@ -499,7 +499,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateProfile(Profile profile) async {
+  Future<void> updateProfileImpl(Profile profile) async {
     final old = profileById(profile.id);
     final updated = normalizeProfileCompletion(
       profile.copyWith(updatedAt: DateTime.now()),
@@ -550,7 +550,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteProfile(String id) async {
+  Future<void> deleteProfileImpl(String id) async {
     final documents = await _profileGraphDocuments(id);
     // A Firestore batch supports at most 500 writes. Refuse before deleting
     // anything when the graph cannot be removed atomically by the client.
@@ -595,7 +595,7 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<WorkStage> addStage(WorkStage stage) async {
+  Future<WorkStage> addStageImpl(WorkStage stage) async {
     final ref = _profileDoc(stage.profileId).collection('stages');
     final doc = stage.id.isEmpty ? ref.doc() : ref.doc(stage.id);
     final newStage = stage.copyWith(id: doc.id);
@@ -604,7 +604,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateStage(WorkStage stage) async {
+  Future<void> updateStageImpl(WorkStage stage) async {
     await _profileDoc(stage.profileId)
         .collection('stages')
         .doc(stage.id)
@@ -613,7 +613,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteStage(String id) async {
+  Future<void> deleteStageImpl(String id) async {
     for (final entry in _stages.entries) {
       if (entry.value.any((s) => s.id == id)) {
         await _profileDoc(entry.key).collection('stages').doc(id).delete();
@@ -623,7 +623,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> reorderStages(
+  Future<void> reorderStagesImpl(
     String profileId,
     List<String> orderedStageIds,
   ) async {
@@ -637,7 +637,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> markStageCompleted(String stageId) async {
+  Future<void> markStageCompletedImpl(String stageId) async {
     final stage = _findStage(stageId);
     if (stage == null) return;
     final now = DateTime.now();
@@ -668,7 +668,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> setStageInProgress(String stageId) async {
+  Future<void> setStageInProgressImpl(String stageId) async {
     final stage = _findStage(stageId);
     if (stage == null) return;
     await updateStage(
@@ -700,7 +700,7 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Milestone> addMilestone(Milestone milestone) async {
+  Future<Milestone> addMilestoneImpl(Milestone milestone) async {
     final ref = _profileDoc(milestone.profileId).collection('milestones');
     final doc = milestone.id.isEmpty ? ref.doc() : ref.doc(milestone.id);
     final m = milestone.copyWith(id: doc.id);
@@ -709,7 +709,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateMilestone(Milestone milestone) async {
+  Future<void> updateMilestoneImpl(Milestone milestone) async {
     await _profileDoc(milestone.profileId)
         .collection('milestones')
         .doc(milestone.id)
@@ -717,7 +717,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteMilestone(String id) async {
+  Future<void> deleteMilestoneImpl(String id) async {
     for (final entry in _milestones.entries) {
       if (entry.value.any((m) => m.id == id)) {
         await _profileDoc(entry.key).collection('milestones').doc(id).delete();
@@ -731,7 +731,9 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<MoneyTransaction> addTransaction(MoneyTransaction transaction) async {
+  Future<MoneyTransaction> addTransactionImpl(
+    MoneyTransaction transaction,
+  ) async {
     validatePositiveAmount(transaction.amount);
     if (transaction.type == TransactionType.collaboratorPayment &&
         transaction.collaboratorAssignmentId == null) {
@@ -801,7 +803,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteTransaction(String id) async {
+  Future<void> deleteTransactionImpl(String id) async {
     for (final entry in _transactions.entries) {
       if (!entry.value.any((t) => t.id == id)) continue;
       final profile = _profileDoc(entry.key);
@@ -841,7 +843,7 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Collaborator> addCollaborator({
+  Future<Collaborator> addCollaboratorImpl({
     required String name,
     String phone = '',
     String note = '',
@@ -861,13 +863,13 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateCollaborator(Collaborator collaborator) async {
+  Future<void> updateCollaboratorImpl(Collaborator collaborator) async {
     final updated = collaborator.copyWith(updatedAt: DateTime.now());
     await _collaboratorsRef.doc(collaborator.id).set(updated.toJson());
   }
 
   @override
-  Future<void> deleteCollaborator(String id) async {
+  Future<void> deleteCollaboratorImpl(String id) async {
     final wasUsed = _assignments.values.any(
       (items) => items.any((assignment) => assignment.collaboratorId == id),
     );
@@ -883,7 +885,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<CollaboratorAssignment> addAssignment(
+  Future<CollaboratorAssignment> addAssignmentImpl(
     CollaboratorAssignment assignment,
   ) async {
     final ref = _profileDoc(assignment.profileId)
@@ -896,7 +898,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateAssignment(CollaboratorAssignment assignment) async {
+  Future<void> updateAssignmentImpl(CollaboratorAssignment assignment) async {
     final doc = _profileDoc(assignment.profileId)
         .collection('collaboratorAssignments')
         .doc(assignment.id);
@@ -922,7 +924,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteAssignment(String id) async {
+  Future<void> deleteAssignmentImpl(String id) async {
     for (final entry in _assignments.entries) {
       if (entry.value.any((a) => a.id == id)) {
         final doc = _profileDoc(entry.key)
@@ -947,7 +949,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> payCommission({
+  Future<void> payCommissionImpl({
     required String assignmentId,
     required num amount,
     required DateTime date,
@@ -982,7 +984,7 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Attachment> addAttachment(Attachment attachment) async {
+  Future<Attachment> addAttachmentImpl(Attachment attachment) async {
     final ref = _profileDoc(attachment.profileId).collection('attachments');
     final doc = attachment.id.isEmpty ? ref.doc() : ref.doc(attachment.id);
     final a = attachment.copyWith(id: doc.id);
@@ -991,7 +993,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> renameAttachment(String id, String newFileName) async {
+  Future<void> renameAttachmentImpl(String id, String newFileName) async {
     for (final entry in _attachments.entries) {
       if (entry.value.any((a) => a.id == id)) {
         await _profileDoc(entry.key).collection('attachments').doc(id).update({
@@ -1004,7 +1006,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteAttachment(String id) async {
+  Future<void> deleteAttachmentImpl(String id) async {
     for (final entry in _attachments.entries) {
       if (entry.value.any((a) => a.id == id)) {
         await _profileDoc(entry.key).collection('attachments').doc(id).delete();
@@ -1018,7 +1020,7 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<TaskItem> addTask(TaskItem task) async {
+  Future<TaskItem> addTaskImpl(TaskItem task) async {
     final ref = _profileDoc(task.profileId).collection('tasks');
     final doc = task.id.isEmpty ? ref.doc() : ref.doc(task.id);
     final now = DateTime.now();
@@ -1053,7 +1055,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> updateTask(TaskItem task) async {
+  Future<void> updateTaskImpl(TaskItem task) async {
     final old = _findTask(task.id);
     final updated = normalizeTaskCompletion(
       task.copyWith(updatedAt: DateTime.now()),
@@ -1077,7 +1079,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> deleteTask(String id) async {
+  Future<void> deleteTaskImpl(String id) async {
     for (final entry in _tasks.entries) {
       if (entry.value.any((t) => t.id == id)) {
         await _profileDoc(entry.key).collection('tasks').doc(id).delete();
@@ -1087,7 +1089,7 @@ class FirebaseRepository extends AppRepository {
   }
 
   @override
-  Future<void> markTaskCompleted(String id) async {
+  Future<void> markTaskCompletedImpl(String id) async {
     final task = _findTask(id);
     if (task == null) return;
     final now = DateTime.now();
@@ -1125,7 +1127,7 @@ class FirebaseRepository extends AppRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<void> addTimelineNote(String profileId, String message) async {
+  Future<void> addTimelineNoteImpl(String profileId, String message) async {
     await _logEvent(profileId, TimelineEventType.note, message);
   }
 
