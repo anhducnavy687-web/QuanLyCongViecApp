@@ -208,8 +208,16 @@ class _AttachmentSectionState extends State<AttachmentSection> {
                       ),
                       subtitle: Text(_formatSize(att.sizeBytes)),
                       onTap: () async {
+                        final path = att.localPathOrUrl;
+                        if (path == null || path.isEmpty) {
+                          context.showSnackBar(
+                            'Bản ghi này không có đường dẫn file trên thiết bị.',
+                            isError: true,
+                          );
+                          return;
+                        }
                         try {
-                          await _fileService.openFile(att.localPathOrUrl);
+                          await _fileService.openFile(path);
                         } on FileServiceException catch (e) {
                           if (context.mounted) {
                             context.showSnackBar(e.message, isError: true);
@@ -223,10 +231,16 @@ class _AttachmentSectionState extends State<AttachmentSection> {
                               await _rename(att);
                               break;
                             case 'share':
-                              try {
-                                await _fileService.shareFile(
-                                  att.localPathOrUrl,
+                              final path = att.localPathOrUrl;
+                              if (path == null || path.isEmpty) {
+                                context.showSnackBar(
+                                  'Bản ghi này không có đường dẫn file trên thiết bị.',
+                                  isError: true,
                                 );
+                                break;
+                              }
+                              try {
+                                await _fileService.shareFile(path);
                               } on FileServiceException catch (e) {
                                 if (context.mounted) {
                                   context.showSnackBar(

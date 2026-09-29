@@ -9,11 +9,14 @@ import '../../navigation/theme_controller.dart';
 import '../../repositories/demo_repository.dart';
 import '../../repositories/app_repository.dart';
 import '../../services/backup_service.dart';
+import '../../services/backup_file_picker.dart';
+import '../../services/backup_import_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/excel_export_service.dart';
 import '../../services/export_snapshot_validator.dart';
 import '../../services/file_download_service.dart';
 import '../collaborators/collaborators_screen.dart';
+import 'restore_preview_dialog.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -21,11 +24,15 @@ class SettingsScreen extends StatelessWidget {
     this.backupService = const BackupService(),
     this.excelExportService = const ExcelExportService(),
     this.fileDelivery,
+    this.backupFilePicker = const DeviceBackupFilePicker(),
+    this.backupImportService = const BackupImportService(),
   });
 
   final BackupService backupService;
   final ExcelExportService excelExportService;
   final ExportFileDelivery? fileDelivery;
+  final BackupFilePicker backupFilePicker;
+  final BackupImportService backupImportService;
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +141,8 @@ class SettingsScreen extends StatelessWidget {
               backupService: backupService,
               excelExportService: excelExportService,
               fileDelivery: fileDelivery,
+              backupFilePicker: backupFilePicker,
+              backupImportService: backupImportService,
             ),
             _SectionLabel('Giới thiệu'),
             const Card(
@@ -188,6 +197,8 @@ class _DataExportCard extends StatefulWidget {
     required this.backupService,
     required this.excelExportService,
     this.fileDelivery,
+    required this.backupFilePicker,
+    required this.backupImportService,
   });
 
   final AppRepository? repository;
@@ -195,6 +206,8 @@ class _DataExportCard extends StatefulWidget {
   final BackupService backupService;
   final ExcelExportService excelExportService;
   final ExportFileDelivery? fileDelivery;
+  final BackupFilePicker backupFilePicker;
+  final BackupImportService backupImportService;
 
   @override
   State<_DataExportCard> createState() => _DataExportCardState();
@@ -202,6 +215,38 @@ class _DataExportCard extends StatefulWidget {
 
 class _DataExportCardState extends State<_DataExportCard> {
   bool _busy = false;
+
+  Future<void> _inspectBackup() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final file = await widget.backupFilePicker.pickJson();
+      if (file == null || !mounted) return;
+      final preview = widget.backupImportService.inspect(file);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      await showDialog<void>(
+        context: context,
+        builder: (_) => RestorePreviewDialog(preview: preview),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is BackupImportException
+          ? error.message
+          : 'Không thể đọc hoặc kiểm tra file đã chọn.';
+      setState(() => _busy = false);
+      await showDialog<void>(
+        context: context,
+        builder: (_) => InvalidBackupDialog(message: message),
+      );
+      assert(() {
+        debugPrint('Backup inspection failed: ${error.runtimeType}');
+        return true;
+      }());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _export({required bool excel}) async {
     if (_busy || widget.repository == null) return;
@@ -268,6 +313,22 @@ class _DataExportCardState extends State<_DataExportCard> {
             subtitle: const Text('Tạo bảng dữ liệu để xem, lưu trữ và in'),
             trailing: const Icon(Icons.download_rounded),
             onTap: _busy ? null : () => _export(excel: true),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.fact_check_outlined),
+            title: const Text('Kiểm tra bản sao lưu'),
+            subtitle: const Text(
+              'Chọn file JSON để kiểm tra trước khi khôi phục',
+            ),
+            trailing: _busy
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.chevron_right_rounded),
+            onTap: _busy ? null : _inspectBackup,
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),

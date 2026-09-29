@@ -6,6 +6,7 @@ export 'milestone.dart';
 export 'money_transaction.dart';
 export 'profile.dart';
 export 'profile_aggregate.dart';
+export 'restore_preview.dart';
 export 'task_item.dart';
 export 'timeline_event.dart';
 export 'work_group.dart';

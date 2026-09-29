@@ -36,7 +36,7 @@ class ExportSnapshotValidator {
     for (final profile in snapshot.profiles) {
       _require(
         groupIds.contains(profile.groupId),
-        'Hồ sơ tham chiếu nhóm không tồn tại.',
+        'Profile ${profile.id} tham chiếu group ${profile.groupId} không tồn tại.',
       );
       _finite(profile.totalAmount, 'Tổng tiền hồ sơ không hợp lệ.');
       _require(
@@ -61,18 +61,18 @@ class ExportSnapshotValidator {
       );
     }
 
-    void requireProfile(String profileId, String entity) => _require(
+    void requireProfile(String profileId, String entity, String id) => _require(
       profileIds.contains(profileId),
-      '$entity tham chiếu hồ sơ không tồn tại.',
+      '$entity $id tham chiếu profile $profileId không tồn tại.',
     );
     for (final stage in snapshot.stages) {
-      requireProfile(stage.profileId, 'Bước xử lý');
+      requireProfile(stage.profileId, 'Stage', stage.id);
     }
     for (final milestone in snapshot.milestones) {
-      requireProfile(milestone.profileId, 'Mốc thời gian');
+      requireProfile(milestone.profileId, 'Milestone', milestone.id);
     }
     for (final task in snapshot.tasks) {
-      requireProfile(task.profileId, 'Việc cần làm');
+      requireProfile(task.profileId, 'Task', task.id);
       _waiting(
         task.status == TaskStatus.waiting,
         task.waitingSince,
@@ -85,17 +85,17 @@ class ExportSnapshotValidator {
       );
     }
     for (final event in snapshot.timelineEvents) {
-      requireProfile(event.profileId, 'Lịch sử');
+      requireProfile(event.profileId, 'TimelineEvent', event.id);
     }
     for (final attachment in snapshot.attachments) {
-      requireProfile(attachment.profileId, 'Tài liệu');
+      requireProfile(attachment.profileId, 'Attachment', attachment.id);
       _require(attachment.sizeBytes >= 0, 'Kích thước tài liệu không hợp lệ.');
     }
     for (final assignment in snapshot.collaboratorAssignments) {
-      requireProfile(assignment.profileId, 'Phân công');
+      requireProfile(assignment.profileId, 'Assignment', assignment.id);
       _require(
         collaboratorIds.contains(assignment.collaboratorId),
-        'Phân công tham chiếu cộng tác viên không tồn tại.',
+        'Assignment ${assignment.id} tham chiếu collaborator ${assignment.collaboratorId} không tồn tại.',
       );
       _finite(assignment.commissionAmount, 'Hoa hồng không hợp lệ.');
       _finite(assignment.paidAmount, 'Số tiền đã trả không hợp lệ.');
@@ -104,23 +104,29 @@ class ExportSnapshotValidator {
 
     final rebuiltPaid = <String, num>{};
     for (final transaction in snapshot.transactions) {
-      requireProfile(transaction.profileId, 'Giao dịch');
-      _finite(transaction.amount, 'Số tiền giao dịch không hợp lệ.');
-      _require(transaction.amount > 0, 'Số tiền giao dịch phải lớn hơn 0.');
+      requireProfile(transaction.profileId, 'Transaction', transaction.id);
+      _finite(
+        transaction.amount,
+        'Transaction ${transaction.id} có số tiền không hợp lệ.',
+      );
+      _require(
+        transaction.amount > 0,
+        'Transaction ${transaction.id} có số tiền không hợp lệ.',
+      );
       if (transaction.type == TransactionType.collaboratorPayment) {
         final assignmentId = transaction.collaboratorAssignmentId;
         _require(
           assignmentId != null && assignmentId.isNotEmpty,
-          'Thanh toán cộng tác viên thiếu phân công.',
+          'Transaction ${transaction.id} thiếu assignment.',
         );
         final assignment = assignments[assignmentId];
         _require(
           assignment != null,
-          'Thanh toán tham chiếu phân công không tồn tại.',
+          'Transaction ${transaction.id} tham chiếu assignment $assignmentId không tồn tại.',
         );
         _require(
           assignment!.profileId == transaction.profileId,
-          'Thanh toán và phân công thuộc hai hồ sơ khác nhau.',
+          'Transaction ${transaction.id} và assignment $assignmentId thuộc hai profile khác nhau.',
         );
         rebuiltPaid[assignmentId!] =
             (rebuiltPaid[assignmentId] ?? 0) + transaction.amount;
@@ -136,11 +142,11 @@ class ExportSnapshotValidator {
       final rebuilt = rebuiltPaid[assignment.id] ?? 0;
       _require(
         rebuilt <= assignment.commissionAmount,
-        'Số tiền đã trả vượt quá hoa hồng của phân công.',
+        'Assignment ${assignment.id} có số tiền đã trả lớn hơn hoa hồng.',
       );
       _require(
         assignment.paidAmount == rebuilt,
-        'Dữ liệu paidAmount không khớp lịch sử giao dịch. Vui lòng đồng bộ lại trước khi xuất.',
+        'Assignment ${assignment.id} có paidAmount không khớp lịch sử giao dịch.',
       );
     }
   }

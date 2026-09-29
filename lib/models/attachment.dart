@@ -33,7 +33,7 @@ class Attachment {
   final AttachmentType type;
 
   /// Đường dẫn cục bộ (Demo Mode) hoặc download URL (Firebase Storage).
-  final String localPathOrUrl;
+  final String? localPathOrUrl;
 
   /// Storage path dự kiến: users/{uid}/profiles/{profileId}/attachments/{id}
   final String? storagePath;
@@ -83,7 +83,7 @@ class Attachment {
       profileId: json['profileId'] as String,
       fileName: json['fileName'] as String,
       type: AttachmentType.fromExtension(json['type'] as String? ?? 'other'),
-      localPathOrUrl: json['localPathOrUrl'] as String,
+      localPathOrUrl: json['localPathOrUrl'] as String?,
       storagePath: json['storagePath'] as String?,
       sizeBytes: json['sizeBytes'] as int? ?? 0,
       createdAt: DateTime.parse(json['createdAt'] as String),
