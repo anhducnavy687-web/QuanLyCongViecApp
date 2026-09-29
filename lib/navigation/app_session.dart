@@ -192,6 +192,18 @@ class AppSession extends ChangeNotifier {
     if (current != null) await _enterFirebaseMode(current);
   }
 
+  Future<AppRepository?> reloadAfterRestore(String expectedUid) async {
+    final current = authService.currentUser;
+    if (status != SessionStatus.authenticated ||
+        current == null ||
+        current.uid != expectedUid ||
+        user?.uid != expectedUid) {
+      return null;
+    }
+    final loaded = await _enterFirebaseMode(current);
+    return loaded ? repository : null;
+  }
+
   Future<void> signOut() async {
     ++_generation;
     _manualAuth = true;

@@ -31,6 +31,8 @@ class FirebaseRepository extends AppRepository {
   final String uid;
   final FirebaseFirestore _db;
 
+  FirebaseFirestore get firestore => _db;
+
   bool _ready = false;
   bool _online = true;
   bool _disposed = false;

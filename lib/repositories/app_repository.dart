@@ -27,9 +27,30 @@ class RepositoryException implements Exception {
 abstract class AppRepository extends ChangeNotifier {
   int _revision = 0;
   int _writesInFlight = 0;
+  Object? _restoreLock;
 
   int get revision => _revision;
   int get writesInFlight => _writesInFlight;
+  bool get isRestoreInProgress => _restoreLock != null;
+
+  Object beginRestore() {
+    if (_restoreLock != null || _writesInFlight != 0) {
+      throw const RepositoryException(
+        'Đang có thao tác dữ liệu khác. Vui lòng thử lại sau.',
+      );
+    }
+    final token = Object();
+    _restoreLock = token;
+    notifyListeners();
+    return token;
+  }
+
+  void endRestore(Object token) {
+    if (identical(_restoreLock, token)) {
+      _restoreLock = null;
+      notifyListeners();
+    }
+  }
 
   @override
   void notifyListeners() {
@@ -39,6 +60,11 @@ abstract class AppRepository extends ChangeNotifier {
 
   @protected
   Future<T> runTrackedWrite<T>(Future<T> Function() action) async {
+    if (_restoreLock != null) {
+      throw const RepositoryException(
+        'Đang khôi phục dữ liệu. Vui lòng chờ hoàn tất.',
+      );
+    }
     _writesInFlight++;
     try {
       return await action();
@@ -48,6 +74,11 @@ abstract class AppRepository extends ChangeNotifier {
   }
 
   Future<ExportSnapshot> createExportSnapshot() async {
+    if (_restoreLock != null) {
+      throw const RepositoryException(
+        'Đang khôi phục dữ liệu. Vui lòng chờ hoàn tất.',
+      );
+    }
     if (!isReady || syncError != null) {
       throw const RepositoryException(
         'Dữ liệu chưa đồng bộ đầy đủ. Vui lòng thử lại sau.',

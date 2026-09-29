@@ -6,8 +6,10 @@ import '../../core/extensions/context_extensions.dart';
 import '../../core/responsive/responsive.dart';
 import '../../navigation/app_session.dart';
 import '../../navigation/theme_controller.dart';
+import '../../models/restore_preview.dart';
 import '../../repositories/demo_repository.dart';
 import '../../repositories/app_repository.dart';
+import '../../repositories/firebase_repository.dart';
 import '../../services/backup_service.dart';
 import '../../services/backup_file_picker.dart';
 import '../../services/backup_import_service.dart';
@@ -15,6 +17,7 @@ import '../../services/connectivity_service.dart';
 import '../../services/excel_export_service.dart';
 import '../../services/export_snapshot_validator.dart';
 import '../../services/file_download_service.dart';
+import '../../services/restore_service.dart';
 import '../collaborators/collaborators_screen.dart';
 import 'restore_preview_dialog.dart';
 
@@ -26,6 +29,7 @@ class SettingsScreen extends StatelessWidget {
     this.fileDelivery,
     this.backupFilePicker = const DeviceBackupFilePicker(),
     this.backupImportService = const BackupImportService(),
+    this.restoreService = const RestoreService(),
   });
 
   final BackupService backupService;
@@ -33,6 +37,7 @@ class SettingsScreen extends StatelessWidget {
   final ExportFileDelivery? fileDelivery;
   final BackupFilePicker backupFilePicker;
   final BackupImportService backupImportService;
+  final RestoreService restoreService;
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +141,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             _SectionLabel('Sao lưu & dữ liệu'),
             _DataExportCard(
+              session: session,
               repository: session.repository,
               isDemoMode: session.isDemoMode,
               backupService: backupService,
@@ -143,6 +149,7 @@ class SettingsScreen extends StatelessWidget {
               fileDelivery: fileDelivery,
               backupFilePicker: backupFilePicker,
               backupImportService: backupImportService,
+              restoreService: restoreService,
             ),
             _SectionLabel('Giới thiệu'),
             const Card(
@@ -192,6 +199,7 @@ class SettingsScreen extends StatelessWidget {
 
 class _DataExportCard extends StatefulWidget {
   const _DataExportCard({
+    required this.session,
     required this.repository,
     required this.isDemoMode,
     required this.backupService,
@@ -199,8 +207,10 @@ class _DataExportCard extends StatefulWidget {
     this.fileDelivery,
     required this.backupFilePicker,
     required this.backupImportService,
+    required this.restoreService,
   });
 
+  final AppSession session;
   final AppRepository? repository;
   final bool isDemoMode;
   final BackupService backupService;
@@ -208,6 +218,7 @@ class _DataExportCard extends StatefulWidget {
   final ExportFileDelivery? fileDelivery;
   final BackupFilePicker backupFilePicker;
   final BackupImportService backupImportService;
+  final RestoreService restoreService;
 
   @override
   State<_DataExportCard> createState() => _DataExportCardState();
@@ -225,10 +236,17 @@ class _DataExportCardState extends State<_DataExportCard> {
       final preview = widget.backupImportService.inspect(file);
       if (!mounted) return;
       setState(() => _busy = false);
-      await showDialog<void>(
+      final restored = await showDialog<bool>(
         context: context,
-        builder: (_) => RestorePreviewDialog(preview: preview),
+        builder: (_) => RestorePreviewDialog(
+          preview: preview,
+          isFirebaseMode: !widget.isDemoMode,
+          onRestore: widget.isDemoMode ? null : () => _restoreBackup(preview),
+        ),
       );
+      if (restored == true && mounted) {
+        context.showSnackBar('Khôi phục dữ liệu thành công.');
+      }
     } catch (error) {
       if (!mounted) return;
       final message = error is BackupImportException
@@ -245,6 +263,36 @@ class _DataExportCardState extends State<_DataExportCard> {
       }());
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restoreBackup(RestorePreview preview) async {
+    final repository = widget.session.repository;
+    final uid = widget.session.user?.uid;
+    if (repository is! FirebaseRepository ||
+        uid == null ||
+        uid != repository.uid) {
+      throw const RestoreException(
+        'Khôi phục dữ liệu chỉ khả dụng khi bạn đăng nhập tài khoản.',
+      );
+    }
+    await widget.restoreService.restore(
+      repository: repository,
+      preview: preview,
+      currentUid: () => widget.session.authService.currentUser?.uid,
+    );
+    final reloaded = await widget.session.reloadAfterRestore(uid);
+    if (reloaded == null) {
+      throw const RestoreException(
+        'Dữ liệu đã được gửi lên máy chủ nhưng ứng dụng chưa thể xác minh hoàn tất. Hãy tải lại ứng dụng và kiểm tra dữ liệu.',
+      );
+    }
+    try {
+      widget.restoreService.verify(reloaded, preview);
+    } on RestoreException {
+      throw const RestoreException(
+        'Dữ liệu đã được gửi lên máy chủ nhưng ứng dụng chưa thể xác minh hoàn tất. Hãy tải lại ứng dụng và kiểm tra dữ liệu.',
+      );
     }
   }
 
