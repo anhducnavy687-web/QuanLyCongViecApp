@@ -187,3 +187,10 @@ cung cấp các getter tính toán:
 
 Toàn bộ UI (Dashboard, Group Detail, Search, Profile Detail...) đều dùng
 chung `ProfileAggregate` để đảm bảo logic nhất quán ở một chỗ duy nhất.
+# Dynamic profile schema
+
+Phase 1.6 extends `WorkGroup` with `profileFieldSchemaVersion`,
+`profileFieldConfigs`, and `customFieldDefinitions`. It extends `Profile` with
+the built-in personnel/family/aspiration fields and `customFieldValues`.
+See [phase16-dynamic-profile-fields.md](phase16-dynamic-profile-fields.md) for
+compatibility, persistence, search, backup, and restore rules.

@@ -6,7 +6,7 @@ import 'backup_file_picker.dart';
 import 'backup_service.dart';
 import 'export_snapshot_validator.dart';
 
-/// Strict JSON v1 reader. The returned snapshot is validated, never applied.
+/// Strict JSON v1/v2 reader. The returned snapshot is validated, never applied.
 class BackupImportService {
   const BackupImportService({this.validator = const ExportSnapshotValidator()});
   static const maxFileBytes = 50 * 1024 * 1024;
@@ -53,7 +53,7 @@ class BackupImportService {
         'Bản sao lưu được tạo bởi phiên bản mới hơn của ứng dụng.',
       );
     }
-    if (version < BackupService.schemaVersion) {
+    if (version < 1) {
       throw const BackupImportException(
         'Phiên bản bản sao lưu cũ không được hỗ trợ.',
       );
@@ -88,10 +88,14 @@ class BackupImportService {
       appVersion: appVersion,
       sourceMode: sourceMode,
       repositoryRevision: 0,
-      groups: parse('groups', _group, WorkGroup.fromJson),
+      groups: parse(
+        'groups',
+        version >= 2 ? {..._group, ..._groupV2} : _group,
+        WorkGroup.fromJson,
+      ),
       profiles: parse(
         'profiles',
-        _profile,
+        version >= 2 ? {..._profile, ..._profileV2} : _profile,
         Profile.fromJson,
         enums: {'status': ProfileStatus.values.map((e) => e.value).toSet()},
       ),
@@ -172,6 +176,11 @@ class BackupImportService {
     if (sourceMode == 'demo') {
       warnings.add('Đây là dữ liệu từ Chế độ Demo.');
     }
+    if (version == 1) {
+      warnings.add(
+        'Bản sao lưu được tạo bằng cấu trúc dữ liệu cũ và sẽ được chuyển đổi khi khôi phục.',
+      );
+    }
     if (!source.containsKey('timeZone') ||
         !source.containsKey('recordCounts')) {
       warnings.add('Một số thông tin nguồn tùy chọn không có trong file.');
@@ -213,6 +222,7 @@ class BackupImportService {
       totalExpense: expense,
       totalCollaboratorPayment: payment,
       rebuiltPaidAmounts: rebuilt,
+      sourceSchemaVersion: version,
     );
   }
 
@@ -341,6 +351,14 @@ class BackupImportService {
         if (value is! bool) {
           throw BackupImportException('$label.$key phải là boolean.');
         }
+      case 'l':
+        if (value is! List) {
+          throw BackupImportException('$label.$key phải là danh sách.');
+        }
+      case 'm':
+        if (value is! Map) {
+          throw BackupImportException('$label.$key phải là object.');
+        }
     }
   }
 
@@ -350,6 +368,11 @@ class BackupImportService {
     'description': 's',
     'createdAt': 't',
     'updatedAt': 't',
+  };
+  static const _groupV2 = {
+    'profileFieldSchemaVersion': 'i',
+    'profileFieldConfigs': 'l',
+    'customFieldDefinitions': 'l',
   };
   static const _profile = {
     'id': 'id',
@@ -370,6 +393,34 @@ class BackupImportService {
     'waitingReason': '?s',
     'waitingSince': '?t',
     'expectedResponseDate': '?t',
+  };
+  static const _profileV2 = {
+    'dateOfBirth': '?t',
+    'citizenId': '?s',
+    'rank': '?s',
+    'position': '?s',
+    'unit': '?s',
+    'enlistment': '?s',
+    'hometown': '?s',
+    'currentResidence': '?s',
+    'educationLevel': '?s',
+    'specialty': '?s',
+    'schoolHistory': '?s',
+    'officerRating': '?s',
+    'fatherFullName': '?s',
+    'fatherBirthYear': '?i',
+    'fatherOccupation': '?s',
+    'fatherHometown': '?s',
+    'fatherCurrentResidence': '?s',
+    'motherFullName': '?s',
+    'motherBirthYear': '?i',
+    'motherOccupation': '?s',
+    'motherHometown': '?s',
+    'motherCurrentResidence': '?s',
+    'aspiration1': '?s',
+    'aspiration2': '?s',
+    'aspiration3': '?s',
+    'customFieldValues': 'm',
   };
   static const _stage = {
     'id': 'id',

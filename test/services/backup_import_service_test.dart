@@ -46,36 +46,33 @@ void main() {
     );
   }
 
-  test(
-    'valid B1 JSON v1 produces immutable full-graph preview and no write',
-    () {
-      final beforeRevision = repository.revision;
-      final beforeWrites = repository.writesInFlight;
-      final preview = service.inspect(file(copy()));
-      expect(preview.isValid, true);
-      expect(preview.schemaVersion, 1);
-      expect(preview.recordCounts['profiles'], repository.profiles.length);
-      expect(
-        preview.snapshot.recordCounts.keys,
-        containsAll([
-          'groups',
-          'profiles',
-          'stages',
-          'milestones',
-          'tasks',
-          'timelineEvents',
-          'transactions',
-          'collaborators',
-          'collaboratorAssignments',
-          'attachments',
-        ]),
-      );
-      expect(() => preview.warnings.add('x'), throwsUnsupportedError);
-      expect(preview.snapshot.profiles.first.fullName, contains('Nguyễn'));
-      expect(repository.revision, beforeRevision);
-      expect(repository.writesInFlight, beforeWrites);
-    },
-  );
+  test('valid JSON v2 produces immutable full-graph preview and no write', () {
+    final beforeRevision = repository.revision;
+    final beforeWrites = repository.writesInFlight;
+    final preview = service.inspect(file(copy()));
+    expect(preview.isValid, true);
+    expect(preview.schemaVersion, 2);
+    expect(preview.recordCounts['profiles'], repository.profiles.length);
+    expect(
+      preview.snapshot.recordCounts.keys,
+      containsAll([
+        'groups',
+        'profiles',
+        'stages',
+        'milestones',
+        'tasks',
+        'timelineEvents',
+        'transactions',
+        'collaborators',
+        'collaboratorAssignments',
+        'attachments',
+      ]),
+    );
+    expect(() => preview.warnings.add('x'), throwsUnsupportedError);
+    expect(preview.snapshot.profiles.first.fullName, contains('Nguyễn'));
+    expect(repository.revision, beforeRevision);
+    expect(repository.writesInFlight, beforeWrites);
+  });
 
   test('preview totals, archived/inactive counts and rebuilt paid amount', () {
     final preview = service.inspect(file(copy()));
@@ -161,8 +158,16 @@ void main() {
   test('schema version missing, wrong type, future and old rejected', () {
     rejects((d) => d.remove('schemaVersion'), 'schemaVersion');
     rejects((d) => d['schemaVersion'] = '1', 'schemaVersion');
-    rejects((d) => d['schemaVersion'] = 2, 'mới hơn');
+    rejects((d) => d['schemaVersion'] = 3, 'mới hơn');
     rejects((d) => d['schemaVersion'] = 0, 'cũ');
+  });
+
+  test('legacy schema v1 remains restorable with a migration warning', () {
+    final doc = copy()..['schemaVersion'] = 1;
+    final preview = service.inspect(file(doc));
+    expect(preview.sourceSchemaVersion, 1);
+    expect(preview.warnings.join(' '), contains('cấu trúc dữ liệu cũ'));
+    expect(preview.snapshot.profiles, isNotEmpty);
   });
 
   test('strict fields: missing, wrong type, empty ID, invalid timestamp', () {

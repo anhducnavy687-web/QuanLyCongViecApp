@@ -183,6 +183,8 @@ class DemoRepository extends AppRepository {
   Future<WorkGroup> addGroupImpl({
     required String name,
     String description = '',
+    List<ProfileFieldConfig>? profileFieldConfigs,
+    List<CustomFieldDefinition>? customFieldDefinitions,
   }) async {
     final group = WorkGroup(
       id: _uuid.v4(),
@@ -190,6 +192,9 @@ class DemoRepository extends AppRepository {
       description: description,
       createdAt: _now,
       updatedAt: _now,
+      profileFieldConfigs:
+          profileFieldConfigs ?? ProfileFieldCatalog.defaultConfigs(),
+      customFieldDefinitions: customFieldDefinitions ?? const [],
     );
     _groups.add(group);
     notifyListeners();

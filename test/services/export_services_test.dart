@@ -99,14 +99,14 @@ void main() {
     });
   });
 
-  group('JSON backup v1', () {
+  group('JSON backup v2', () {
     test('serializes full graph, Unicode, nulls, enums and metadata', () async {
       final repo = SnapshotTestRepository();
       await repo.init();
       final snapshot = await repo.createExportSnapshot();
       final file = const BackupService().createJsonBackup(snapshot);
       final json = jsonDecode(utf8.decode(file.bytes)) as Map<String, dynamic>;
-      expect(json['schemaVersion'], 1);
+      expect(json['schemaVersion'], 2);
       expect(json['exportedAt'], snapshot.exportedAt.toIso8601String());
       expect(
         file.fileName,
@@ -366,6 +366,8 @@ void main() {
         'Collaborators',
         'CollaboratorAssignments',
         'Attachments',
+        'FieldDefinitions',
+        'CustomFieldValues',
       });
       expect(workbook['Profiles'].maxRows, snapshot.profiles.length + 1);
       expect(
@@ -392,7 +394,7 @@ void main() {
         await repo.createExportSnapshot(),
       );
       final workbook = Excel.decodeBytes(file.bytes);
-      expect(workbook.tables, hasLength(11));
+      expect(workbook.tables, hasLength(13));
       expect(workbook['Groups'].maxRows, 1);
       repo.dispose();
     });

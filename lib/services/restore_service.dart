@@ -238,6 +238,27 @@ class RestoreService {
       ids(repository.groups, (e) => e.id),
       ids(expected.groups, (e) => e.id),
     );
+    for (final wanted in expected.groups) {
+      final actual = repository.groupById(wanted.id)!;
+      if (actual.profileFieldSchemaVersion !=
+              wanted.profileFieldSchemaVersion ||
+          actual.effectiveFieldConfigs
+                  .map((e) => e.toJson().toString())
+                  .join() !=
+              wanted.effectiveFieldConfigs
+                  .map((e) => e.toJson().toString())
+                  .join() ||
+          actual.customFieldDefinitions
+                  .map((e) => e.toJson().toString())
+                  .join() !=
+              wanted.customFieldDefinitions
+                  .map((e) => e.toJson().toString())
+                  .join()) {
+        throw const RestoreException(
+          'Cấu hình trường hồ sơ chưa khớp bản sao lưu.',
+        );
+      }
+    }
     same(
       ids(repository.profiles, (e) => e.id),
       ids(expected.profiles, (e) => e.id),
@@ -247,6 +268,13 @@ class RestoreService {
       ids(expected.collaborators, (e) => e.id),
     );
     for (final profile in expected.profiles) {
+      final restoredProfile = repository.profileById(profile.id)!;
+      if (restoredProfile.customFieldValues.toString() !=
+          profile.customFieldValues.toString()) {
+        throw const RestoreException(
+          'Giá trị trường tùy chỉnh chưa khớp bản sao lưu.',
+        );
+      }
       same(
         ids(repository.stagesOf(profile.id), (e) => e.id),
         ids(

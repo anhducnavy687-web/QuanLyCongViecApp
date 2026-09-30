@@ -17,7 +17,7 @@ class GeneratedExportFile {
 
 class BackupService {
   const BackupService({this.validator = const ExportSnapshotValidator()});
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
   final ExportSnapshotValidator validator;
 
   GeneratedExportFile createJsonBackup(ExportSnapshot snapshot) {
@@ -63,7 +63,8 @@ class BackupService {
 
   void validateDocument(Map<String, dynamic> document) {
     try {
-      if (document['schemaVersion'] != schemaVersion) {
+      final version = document['schemaVersion'];
+      if (version is! int || version < 1 || version > schemaVersion) {
         throw const ExportValidationException(
           'Phiên bản backup không được hỗ trợ.',
         );

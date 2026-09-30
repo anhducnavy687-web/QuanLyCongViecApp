@@ -26,6 +26,7 @@ class ExportSnapshotValidator {
     _unique('tài liệu', snapshot.attachments.map((e) => e.id));
 
     final groupIds = snapshot.groups.map((e) => e.id).toSet();
+    final groupsById = {for (final group in snapshot.groups) group.id: group};
     final profileIds = snapshot.profiles.map((e) => e.id).toSet();
     final collaboratorIds = snapshot.collaborators.map((e) => e.id).toSet();
     final assignments = {
@@ -33,12 +34,91 @@ class ExportSnapshotValidator {
         assignment.id: assignment,
     };
 
+    for (final group in snapshot.groups) {
+      final customIds = <String>{};
+      for (final definition in group.customFieldDefinitions) {
+        _require(
+          definition.id.startsWith('custom_') && !definition.id.contains('/'),
+          'Custom field ID không hợp lệ.',
+        );
+        _require(
+          definition.label.trim().isNotEmpty,
+          'Nhãn custom field không được trống.',
+        );
+        _require(
+          definition.section != ProfileFieldSection.aspiration,
+          'Custom field không được thuộc Nguyện vọng.',
+        );
+        _require(customIds.add(definition.id), 'Custom field ID bị trùng.');
+        final optionIds = <String>{};
+        for (final option in definition.options) {
+          _require(
+            option.id.isNotEmpty && optionIds.add(option.id),
+            'Option ID không hợp lệ hoặc bị trùng.',
+          );
+        }
+        if (definition.type == ProfileFieldType.singleSelect &&
+            definition.active) {
+          _require(
+            definition.options.any((e) => e.active),
+            'Danh sách lựa chọn phải có option hoạt động.',
+          );
+        }
+      }
+      final configs = group.effectiveFieldConfigs;
+      final configIds = <String>{};
+      for (final config in configs) {
+        _require(configIds.add(config.fieldId), 'Field config bị trùng.');
+        _require(
+          ProfileFieldCatalog.byId(config.fieldId) != null ||
+              customIds.contains(config.fieldId),
+          'Field config không tồn tại trong catalog.',
+        );
+        _require(
+          !config.required || config.enabled,
+          'Field bắt buộc phải được bật.',
+        );
+      }
+      ProfileFieldConfig? fullName;
+      for (final config in configs) {
+        if (config.fieldId == 'fullName') fullName = config;
+      }
+      _require(
+        fullName != null && fullName.enabled && fullName.required,
+        'Họ và tên luôn phải được bật và bắt buộc.',
+      );
+    }
+
     for (final profile in snapshot.profiles) {
       _require(
         groupIds.contains(profile.groupId),
         'Profile ${profile.id} tham chiếu group ${profile.groupId} không tồn tại.',
       );
       _finite(profile.totalAmount, 'Tổng tiền hồ sơ không hợp lệ.');
+      final group = groupsById[profile.groupId];
+      for (final value in profile.customFieldValues.entries) {
+        final definition = group?.customFieldDefinitions
+            .where((d) => d.id == value.key)
+            .firstOrNull;
+        _require(
+          definition != null,
+          'Profile ${profile.id} chứa custom field ${value.key} không có definition.',
+        );
+        final validType = switch (definition!.type) {
+          ProfileFieldType.text ||
+          ProfileFieldType.multiline => value.value is String,
+          ProfileFieldType.number => value.value is num,
+          ProfileFieldType.date =>
+            value.value is String &&
+                DateTime.tryParse(value.value as String) != null,
+          ProfileFieldType.year => value.value is int,
+          ProfileFieldType.boolean => value.value is bool,
+          ProfileFieldType.singleSelect =>
+            value.value is String &&
+                definition.options.any((option) => option.id == value.value),
+        };
+        _require(validType, 'Giá trị custom field ${value.key} sai kiểu.');
+      }
       _require(
         profile.hasDeadline == (profile.deadline != null),
         'Thông tin deadline của hồ sơ không nhất quán.',

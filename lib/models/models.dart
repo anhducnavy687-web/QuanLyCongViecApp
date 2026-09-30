@@ -5,6 +5,7 @@ export 'collaborator_assignment.dart';
 export 'milestone.dart';
 export 'money_transaction.dart';
 export 'profile.dart';
+export 'profile_field_schema.dart';
 export 'profile_aggregate.dart';
 export 'restore_preview.dart';
 export 'restore_plan.dart';

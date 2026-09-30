@@ -102,10 +102,42 @@ class _SearchScreenState extends State<SearchScreen> {
     final p = a.profile;
     bool has(String field) =>
         VietnameseUtils.removeDiacritics(field).contains(q);
+    final dynamicValues = <Object?>[
+      p.citizenId,
+      p.rank,
+      p.position,
+      p.unit,
+      p.enlistment,
+      p.hometown,
+      p.currentResidence,
+      p.educationLevel,
+      p.specialty,
+      p.schoolHistory,
+      p.officerRating,
+      p.fatherFullName,
+      p.fatherBirthYear,
+      p.fatherOccupation,
+      p.fatherHometown,
+      p.fatherCurrentResidence,
+      p.motherFullName,
+      p.motherBirthYear,
+      p.motherOccupation,
+      p.motherHometown,
+      p.motherCurrentResidence,
+      p.aspiration1,
+      p.aspiration2,
+      p.aspiration3,
+      ...p.customFieldValues.values,
+      if (a.group != null)
+        for (final definition in a.group!.customFieldDefinitions)
+          for (final option in definition.options)
+            if (p.customFieldValues[definition.id] == option.id) option.label,
+    ];
     return has(p.fullName) ||
         has(p.phone) ||
         has(p.workTarget) ||
         has(p.description) ||
+        dynamicValues.any((value) => value != null && has(value.toString())) ||
         has(p.status.label) ||
         (a.group != null && has(a.group!.name)) ||
         a.tasks.any(

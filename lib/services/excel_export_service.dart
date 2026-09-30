@@ -15,6 +15,22 @@ class ExcelExportService {
     final book = Excel.createExcel();
     final profileNames = {for (final p in snapshot.profiles) p.id: p.fullName};
     final groupNames = {for (final g in snapshot.groups) g.id: g.name};
+    final groupsById = {for (final g in snapshot.groups) g.id: g};
+    String customDisplay(Profile profile, String fieldId, Object? value) {
+      final definition = groupsById[profile.groupId]?.customFieldDefinitions
+          .where((d) => d.id == fieldId)
+          .firstOrNull;
+      if (definition?.type != ProfileFieldType.singleSelect) {
+        return value?.toString() ?? '';
+      }
+      return definition!.options
+              .where((option) => option.id == value)
+              .map((option) => option.label)
+              .firstOrNull ??
+          value?.toString() ??
+          '';
+    }
+
     final collaboratorNames = {
       for (final c in snapshot.collaborators) c.id: c.name,
     };
@@ -24,7 +40,7 @@ class ExcelExportService {
       'Metadata',
       ['Trường', 'Giá trị'],
       [
-        ['Schema Version', 1],
+        ['Schema Version', 2],
         ['Exported At', snapshot.exportedAt],
         ['App Version', snapshot.appVersion],
         ['Source Mode', snapshot.sourceMode],
@@ -70,6 +86,31 @@ class ExcelExportService {
         'Lý do chờ',
         'Bắt đầu chờ',
         'Dự kiến phản hồi',
+        'Ngày sinh',
+        'CCCD',
+        'Cấp bậc',
+        'Chức vụ',
+        'Đơn vị',
+        'Nhập ngũ',
+        'Quê quán',
+        'Nơi ở hiện nay',
+        'Trình độ',
+        'Chuyên ngành',
+        'Qua trường',
+        'Xếp loại cán bộ',
+        'Họ tên bố',
+        'Năm sinh bố',
+        'Nghề nghiệp bố',
+        'Quê quán bố',
+        'Nơi ở bố',
+        'Họ tên mẹ',
+        'Năm sinh mẹ',
+        'Nghề nghiệp mẹ',
+        'Quê quán mẹ',
+        'Nơi ở mẹ',
+        'Nguyện vọng 1',
+        'Nguyện vọng 2',
+        'Nguyện vọng 3',
       ],
       [
         for (final p in snapshot.profiles)
@@ -94,6 +135,31 @@ class ExcelExportService {
             p.waitingReason,
             p.waitingSince,
             p.expectedResponseDate,
+            p.dateOfBirth,
+            p.citizenId,
+            p.rank,
+            p.position,
+            p.unit,
+            p.enlistment,
+            p.hometown,
+            p.currentResidence,
+            p.educationLevel,
+            p.specialty,
+            p.schoolHistory,
+            p.officerRating,
+            p.fatherFullName,
+            p.fatherBirthYear,
+            p.fatherOccupation,
+            p.fatherHometown,
+            p.fatherCurrentResidence,
+            p.motherFullName,
+            p.motherBirthYear,
+            p.motherOccupation,
+            p.motherHometown,
+            p.motherCurrentResidence,
+            p.aspiration1,
+            p.aspiration2,
+            p.aspiration3,
           ],
       ],
     );
@@ -332,6 +398,106 @@ class ExcelExportService {
             a.updatedAt,
             false,
           ],
+      ],
+    );
+    _sheet(
+      book,
+      'FieldDefinitions',
+      [
+        'Group ID',
+        'Group Name',
+        'Field ID',
+        'Built-in/Custom',
+        'Label',
+        'Section',
+        'Type',
+        'Enabled',
+        'Required',
+        'Order',
+        'Pinned',
+        'Active',
+        'Options',
+      ],
+      [
+        for (final group in snapshot.groups)
+          for (final config in group.effectiveFieldConfigs)
+            [
+              group.id,
+              group.name,
+              config.fieldId,
+              ProfileFieldCatalog.byId(config.fieldId) != null
+                  ? 'Built-in'
+                  : 'Custom',
+              ProfileFieldCatalog.byId(config.fieldId)?.labelVi ??
+                  group.customFieldDefinitions
+                      .where((e) => e.id == config.fieldId)
+                      .map((e) => e.label)
+                      .join(),
+              ProfileFieldCatalog.byId(config.fieldId)?.section.name ??
+                  group.customFieldDefinitions
+                      .where((e) => e.id == config.fieldId)
+                      .map((e) => e.section.name)
+                      .join(),
+              ProfileFieldCatalog.byId(config.fieldId)?.type.name ??
+                  group.customFieldDefinitions
+                      .where((e) => e.id == config.fieldId)
+                      .map((e) => e.type.name)
+                      .join(),
+              config.enabled,
+              config.required,
+              config.order,
+              ProfileFieldCatalog.byId(config.fieldId)?.isPinnedBottom ?? false,
+              group.customFieldDefinitions
+                  .where((e) => e.id == config.fieldId)
+                  .map((e) => e.active)
+                  .fold<bool>(true, (_, value) => value),
+              group.customFieldDefinitions
+                  .where((e) => e.id == config.fieldId)
+                  .expand((e) => e.options)
+                  .map(
+                    (e) =>
+                        '${e.id}:${e.label}:active=${e.active}:order=${e.order}',
+                  )
+                  .join('|'),
+            ],
+      ],
+    );
+    _sheet(
+      book,
+      'CustomFieldValues',
+      [
+        'Profile ID',
+        'Profile Name',
+        'Group ID',
+        'Field ID',
+        'Field Label',
+        'Field Type',
+        'Raw Value',
+        'Display Value',
+      ],
+      [
+        for (final profile in snapshot.profiles)
+          for (final entry in profile.customFieldValues.entries)
+            [
+              profile.id,
+              profile.fullName,
+              profile.groupId,
+              entry.key,
+              snapshot.groups
+                  .where((g) => g.id == profile.groupId)
+                  .expand((g) => g.customFieldDefinitions)
+                  .where((d) => d.id == entry.key)
+                  .map((d) => d.label)
+                  .join(),
+              snapshot.groups
+                  .where((g) => g.id == profile.groupId)
+                  .expand((g) => g.customFieldDefinitions)
+                  .where((d) => d.id == entry.key)
+                  .map((d) => d.type.name)
+                  .join(),
+              entry.value,
+              customDisplay(profile, entry.key, entry.value),
+            ],
       ],
     );
     book.delete('Sheet1');

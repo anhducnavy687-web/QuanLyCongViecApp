@@ -399,6 +399,8 @@ class FirebaseRepository extends AppRepository {
   Future<WorkGroup> addGroupImpl({
     required String name,
     String description = '',
+    List<ProfileFieldConfig>? profileFieldConfigs,
+    List<CustomFieldDefinition>? customFieldDefinitions,
   }) async {
     final doc = _groupsRef.doc();
     final now = DateTime.now();
@@ -408,6 +410,9 @@ class FirebaseRepository extends AppRepository {
       description: description,
       createdAt: now,
       updatedAt: now,
+      profileFieldConfigs:
+          profileFieldConfigs ?? ProfileFieldCatalog.defaultConfigs(),
+      customFieldDefinitions: customFieldDefinitions ?? const [],
     );
     await doc.set(group.toJson());
     return group;

@@ -32,6 +32,7 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
   late final TextEditingController _amountCtrl;
   late final TextEditingController _noteCtrl;
   late final TextEditingController _waitingReasonCtrl;
+  final Map<String, TextEditingController> _dynamicCtrls = {};
 
   String? _groupId;
   late DateTime _startDate;
@@ -67,6 +68,39 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     _status = p?.status ?? ProfileStatus.newProfile;
     _waitingSince = p?.waitingSince;
     _expectedResponseDate = p?.expectedResponseDate;
+    final values = <String, Object?>{
+      'dateOfBirth': p?.dateOfBirth?.toIso8601String().split('T').first,
+      'citizenId': p?.citizenId,
+      'rank': p?.rank,
+      'position': p?.position,
+      'unit': p?.unit,
+      'enlistment': p?.enlistment,
+      'hometown': p?.hometown,
+      'currentResidence': p?.currentResidence,
+      'educationLevel': p?.educationLevel,
+      'specialty': p?.specialty,
+      'schoolHistory': p?.schoolHistory,
+      'officerRating': p?.officerRating,
+      'fatherFullName': p?.fatherFullName,
+      'fatherBirthYear': p?.fatherBirthYear,
+      'fatherOccupation': p?.fatherOccupation,
+      'fatherHometown': p?.fatherHometown,
+      'fatherCurrentResidence': p?.fatherCurrentResidence,
+      'motherFullName': p?.motherFullName,
+      'motherBirthYear': p?.motherBirthYear,
+      'motherOccupation': p?.motherOccupation,
+      'motherHometown': p?.motherHometown,
+      'motherCurrentResidence': p?.motherCurrentResidence,
+      'aspiration1': p?.aspiration1,
+      'aspiration2': p?.aspiration2,
+      'aspiration3': p?.aspiration3,
+      ...?p?.customFieldValues,
+    };
+    for (final entry in values.entries) {
+      _dynamicCtrls[entry.key] = TextEditingController(
+        text: entry.value?.toString() ?? '',
+      );
+    }
   }
 
   @override
@@ -78,6 +112,9 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     _amountCtrl.dispose();
     _noteCtrl.dispose();
     _waitingReasonCtrl.dispose();
+    for (final controller in _dynamicCtrls.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -85,7 +122,7 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _startDate,
-      firstDate: DateTime(2000),
+      firstDate: DateTime(1900),
       lastDate: DateTime(2100),
     );
     if (picked != null) setState(() => _startDate = picked);
@@ -108,7 +145,7 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: initial ?? DateTime.now(),
-      firstDate: DateTime(2000),
+      firstDate: DateTime(1900),
       lastDate: DateTime(2100),
     );
     if (picked != null) onPicked(picked);
@@ -152,38 +189,96 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
           ) ??
           0;
       final now = DateTime.now();
+      String? text(String id) {
+        final value = _dynamicCtrls[id]?.text.trim() ?? '';
+        return value.isEmpty ? null : value;
+      }
+
+      int? year(String id) => int.tryParse(text(id) ?? '');
+      final dob = DateTime.tryParse(text('dateOfBirth') ?? '');
+      final customValues = Map<String, dynamic>.from(
+        widget.profile?.customFieldValues ?? const {},
+      );
+      final selectedGroup = repo.groupById(_groupId!);
+      for (final definition
+          in selectedGroup?.customFieldDefinitions ??
+              const <CustomFieldDefinition>[]) {
+        final config = selectedGroup!.effectiveFieldConfigs
+            .where((c) => c.fieldId == definition.id)
+            .firstOrNull;
+        if (config?.enabled != true || !definition.active) continue;
+        final raw = text(definition.id);
+        if (raw == null) {
+          customValues.remove(definition.id);
+          continue;
+        }
+        customValues[definition.id] = switch (definition.type) {
+          ProfileFieldType.number => num.tryParse(raw) ?? raw,
+          ProfileFieldType.year => int.tryParse(raw) ?? raw,
+          ProfileFieldType.boolean => raw == 'true',
+          _ => raw,
+        };
+      }
       final isWaiting = _status == ProfileStatus.waiting;
       if (isWaiting) {
         _waitingSince ??= now;
       }
 
       if (_isEdit) {
+        final base = widget.profile!.copyWith(
+          groupId: _groupId!,
+          fullName: _nameCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+          workTarget: _workTargetCtrl.text.trim(),
+          description: _descCtrl.text.trim(),
+          startDate: _startDate,
+          deadline: _hasDeadline ? _deadline : null,
+          hasDeadline: _hasDeadline,
+          status: _status,
+          totalAmount: amount,
+          note: _noteCtrl.text.trim(),
+          clearDeadline: !_hasDeadline,
+          completedAt: _status == ProfileStatus.completed
+              ? (widget.profile!.status == ProfileStatus.completed
+                    ? widget.profile!.completedAt
+                    : now)
+              : null,
+          clearCompletedAt: _status != ProfileStatus.completed,
+          waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
+          clearWaitingReason: !isWaiting,
+          waitingSince: isWaiting ? _waitingSince : null,
+          clearWaitingSince: !isWaiting,
+          expectedResponseDate: isWaiting ? _expectedResponseDate : null,
+          clearExpectedResponseDate: !isWaiting,
+        );
         await repo.updateProfile(
-          widget.profile!.copyWith(
-            groupId: _groupId!,
-            fullName: _nameCtrl.text.trim(),
-            phone: _phoneCtrl.text.trim(),
-            workTarget: _workTargetCtrl.text.trim(),
-            description: _descCtrl.text.trim(),
-            startDate: _startDate,
-            deadline: _hasDeadline ? _deadline : null,
-            hasDeadline: _hasDeadline,
-            status: _status,
-            totalAmount: amount,
-            note: _noteCtrl.text.trim(),
-            clearDeadline: !_hasDeadline,
-            completedAt: _status == ProfileStatus.completed
-                ? (widget.profile!.status == ProfileStatus.completed
-                      ? widget.profile!.completedAt
-                      : now)
-                : null,
-            clearCompletedAt: _status != ProfileStatus.completed,
-            waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
-            clearWaitingReason: !isWaiting,
-            waitingSince: isWaiting ? _waitingSince : null,
-            clearWaitingSince: !isWaiting,
-            expectedResponseDate: isWaiting ? _expectedResponseDate : null,
-            clearExpectedResponseDate: !isWaiting,
+          base.replaceDynamicValues(
+            dateOfBirth: dob,
+            citizenId: text('citizenId'),
+            rank: text('rank'),
+            position: text('position'),
+            unit: text('unit'),
+            enlistment: text('enlistment'),
+            hometown: text('hometown'),
+            currentResidence: text('currentResidence'),
+            educationLevel: text('educationLevel'),
+            specialty: text('specialty'),
+            schoolHistory: text('schoolHistory'),
+            officerRating: text('officerRating'),
+            fatherFullName: text('fatherFullName'),
+            fatherBirthYear: year('fatherBirthYear'),
+            fatherOccupation: text('fatherOccupation'),
+            fatherHometown: text('fatherHometown'),
+            fatherCurrentResidence: text('fatherCurrentResidence'),
+            motherFullName: text('motherFullName'),
+            motherBirthYear: year('motherBirthYear'),
+            motherOccupation: text('motherOccupation'),
+            motherHometown: text('motherHometown'),
+            motherCurrentResidence: text('motherCurrentResidence'),
+            aspiration1: text('aspiration1'),
+            aspiration2: text('aspiration2'),
+            aspiration3: text('aspiration3'),
+            customFieldValues: customValues,
           ),
         );
       } else {
@@ -207,6 +302,32 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
             waitingReason: isWaiting ? _waitingReasonCtrl.text.trim() : null,
             waitingSince: isWaiting ? _waitingSince : null,
             expectedResponseDate: isWaiting ? _expectedResponseDate : null,
+            dateOfBirth: dob,
+            citizenId: text('citizenId'),
+            rank: text('rank'),
+            position: text('position'),
+            unit: text('unit'),
+            enlistment: text('enlistment'),
+            hometown: text('hometown'),
+            currentResidence: text('currentResidence'),
+            educationLevel: text('educationLevel'),
+            specialty: text('specialty'),
+            schoolHistory: text('schoolHistory'),
+            officerRating: text('officerRating'),
+            fatherFullName: text('fatherFullName'),
+            fatherBirthYear: year('fatherBirthYear'),
+            fatherOccupation: text('fatherOccupation'),
+            fatherHometown: text('fatherHometown'),
+            fatherCurrentResidence: text('fatherCurrentResidence'),
+            motherFullName: text('motherFullName'),
+            motherBirthYear: year('motherBirthYear'),
+            motherOccupation: text('motherOccupation'),
+            motherHometown: text('motherHometown'),
+            motherCurrentResidence: text('motherCurrentResidence'),
+            aspiration1: text('aspiration1'),
+            aspiration2: text('aspiration2'),
+            aspiration3: text('aspiration3'),
+            customFieldValues: customValues,
           ),
         );
       }
@@ -220,7 +341,7 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
   Widget build(BuildContext context) {
     final repo = context.watch<AppRepository>();
     final groups = repo.groups;
-
+    final selectedGroup = repo.groupById(_groupId ?? '');
     return Scaffold(
       appBar: AppBar(title: Text(_isEdit ? 'Sửa hồ sơ' : 'Thêm hồ sơ')),
       body: ResponsivePage(
@@ -230,64 +351,45 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
-              // Họ tên | Điện thoại — một cột trên điện thoại, hai cột cạnh
-              // nhau trên tablet/desktop (đủ chỗ, không cần cuộn nhiều).
-              _fieldRow(
-                context,
-                TextFormField(
-                  controller: _nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Họ tên *'),
-                  validator: Validators.fullName,
-                  textCapitalization: TextCapitalization.words,
-                ),
-                TextFormField(
-                  controller: _phoneCtrl,
-                  decoration: const InputDecoration(labelText: 'Số điện thoại'),
-                  keyboardType: TextInputType.phone,
-                  validator: Validators.phone,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _workTargetCtrl,
+              Text('NHÓM CÔNG VIỆC', style: context.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: groups.any((g) => g.id == _groupId)
+                    ? _groupId
+                    : null,
                 decoration: const InputDecoration(
-                  labelText: 'Đích công việc *',
+                  labelText: 'Nhóm công việc *',
                 ),
-                validator: Validators.workTarget,
+                items: [
+                  for (final g in groups)
+                    DropdownMenuItem(value: g.id, child: Text(g.name)),
+                ],
+                onChanged: (v) => setState(() => _groupId = v),
+                validator: (value) =>
+                    value == null ? 'Vui lòng chọn nhóm công việc.' : null,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Mô tả'),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              // Nhóm | Trạng thái — cùng cặp 2 cột trên màn hình rộng.
-              _fieldRow(
-                context,
-                DropdownButtonFormField<String>(
-                  initialValue: groups.any((g) => g.id == _groupId)
-                      ? _groupId
-                      : null,
-                  decoration: const InputDecoration(
-                    labelText: 'Nhóm công việc *',
-                  ),
-                  items: [
-                    for (final g in groups)
-                      DropdownMenuItem(value: g.id, child: Text(g.name)),
-                  ],
-                  onChanged: (v) => setState(() => _groupId = v),
-                ),
+              ..._dynamicWidgets(selectedGroup, aspirationsOnly: false),
+              ..._dynamicWidgets(selectedGroup, aspirationsOnly: true),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 4),
+              Text('QUY TRÌNH XỬ LÝ', style: context.textTheme.labelLarge),
+              if (_isEdit) ...[
+                const SizedBox(height: 12),
                 DropdownButtonFormField<ProfileStatus>(
                   initialValue: _status,
                   decoration: const InputDecoration(labelText: 'Trạng thái'),
                   items: [
-                    for (final s in ProfileStatus.values)
-                      DropdownMenuItem(value: s, child: Text(s.label)),
+                    for (final status in ProfileStatus.values)
+                      DropdownMenuItem(
+                        value: status,
+                        child: Text(status.label),
+                      ),
                   ],
-                  onChanged: (v) => setState(() => _status = v ?? _status),
+                  onChanged: (value) =>
+                      setState(() => _status = value ?? _status),
                 ),
-              ),
+              ],
               if (_status == ProfileStatus.waiting) ...[
                 const SizedBox(height: 16),
                 const Divider(),
@@ -368,6 +470,10 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
                   ),
                 ),
               ],
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 4),
+              Text('TÀI CHÍNH', style: context.textTheme.labelLarge),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _amountCtrl,
@@ -375,12 +481,6 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
                 keyboardType: TextInputType.number,
                 validator: (v) =>
                     Validators.nonNegativeAmount(v, field: 'Tổng tiền'),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _noteCtrl,
-                decoration: const InputDecoration(labelText: 'Ghi chú'),
-                maxLines: 3,
               ),
               const SizedBox(height: 24),
               FilledButton(
@@ -402,21 +502,168 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
       ),
     );
   }
-}
 
-/// Cặp field hiển thị 1 cột trên điện thoại, 2 cột cạnh nhau trên
-/// tablet/desktop — dùng cho các cặp field ngắn phù hợp đứng chung hàng
-/// (VD: Họ tên/Điện thoại, Nhóm/Trạng thái).
-Widget _fieldRow(BuildContext context, Widget left, Widget right) {
-  if (context.isCompact) {
-    return Column(children: [left, const SizedBox(height: 12), right]);
+  List<Widget> _dynamicWidgets(
+    WorkGroup? group, {
+    required bool aspirationsOnly,
+  }) {
+    if (group == null) return const [];
+    final configs = group.effectiveFieldConfigs.where((c) {
+      if (!c.enabled) return false;
+      final isAspiration =
+          ProfileFieldCatalog.byId(c.fieldId)?.isPinnedBottom == true;
+      return aspirationsOnly == isAspiration;
+    }).toList();
+    configs.sort((a, b) {
+      final da = ProfileFieldCatalog.byId(a.fieldId);
+      final db = ProfileFieldCatalog.byId(b.fieldId);
+      if (da?.isPinnedBottom == true && db?.isPinnedBottom != true) return 1;
+      if (db?.isPinnedBottom == true && da?.isPinnedBottom != true) return -1;
+      if (da?.isPinnedBottom == true) {
+        return da!.pinnedOrder!.compareTo(db!.pinnedOrder!);
+      }
+      ProfileFieldSection section(ProfileFieldConfig config) =>
+          ProfileFieldCatalog.byId(config.fieldId)?.section ??
+          group.customFieldDefinitions
+              .firstWhere((d) => d.id == config.fieldId)
+              .section;
+      final bySection = section(a).index.compareTo(section(b).index);
+      return bySection != 0 ? bySection : a.order.compareTo(b.order);
+    });
+    final result = <Widget>[];
+    ProfileFieldSection? section;
+    for (final config in configs) {
+      final built = ProfileFieldCatalog.byId(config.fieldId);
+      CustomFieldDefinition? custom;
+      for (final d in group.customFieldDefinitions) {
+        if (d.id == config.fieldId) custom = d;
+      }
+      if (built == null && custom == null) continue;
+      if (custom != null && !custom.active) continue;
+      final currentSection = built?.section ?? custom!.section;
+      if (section != currentSection) {
+        section = currentSection;
+        result.addAll([
+          const SizedBox(height: 16),
+          Text(switch (section) {
+            ProfileFieldSection.subject => 'Thông tin đối tượng',
+            ProfileFieldSection.family => 'Thông tin gia đình',
+            ProfileFieldSection.workContent => 'Nội dung công việc',
+            ProfileFieldSection.aspiration =>
+              'Nguyện vọng — luôn ở cuối biểu mẫu',
+          }, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ]);
+      }
+      final type = built?.type ?? custom!.type;
+      final label =
+          '${built?.labelVi ?? custom!.label}${config.required ? ' *' : ''}';
+      final controller = _controllerFor(config.fieldId);
+      String? validate(String? value) {
+        if (config.required && (value == null || value.trim().isEmpty)) {
+          return 'Vui lòng nhập ${built?.labelVi ?? custom!.label}.';
+        }
+        if (value == null || value.trim().isEmpty) return null;
+        if (config.fieldId == 'fullName') return Validators.fullName(value);
+        if (config.fieldId == 'phone') return Validators.phone(value);
+        if (type == ProfileFieldType.number && num.tryParse(value) == null) {
+          return 'Số không hợp lệ';
+        }
+        if (type == ProfileFieldType.year && int.tryParse(value) == null) {
+          return 'Năm không hợp lệ';
+        }
+        if (type == ProfileFieldType.date) {
+          final date = DateTime.tryParse(value);
+          if (date == null) return 'Ngày không hợp lệ';
+          if (config.fieldId == 'dateOfBirth' && date.isAfter(DateTime.now())) {
+            return 'Ngày không được ở tương lai';
+          }
+        }
+        return null;
+      }
+
+      Widget field;
+      if (type == ProfileFieldType.boolean) {
+        field = DropdownButtonFormField<String>(
+          initialValue: controller.text.isEmpty ? null : controller.text,
+          decoration: InputDecoration(labelText: label),
+          items: const [
+            DropdownMenuItem(value: 'true', child: Text('Có')),
+            DropdownMenuItem(value: 'false', child: Text('Không')),
+          ],
+          onChanged: (value) => controller.text = value ?? '',
+          validator: validate,
+        );
+      } else if (type == ProfileFieldType.singleSelect && custom != null) {
+        final optionIds = custom.options.map((e) => e.id).toSet();
+        field = DropdownButtonFormField<String>(
+          initialValue: optionIds.contains(controller.text)
+              ? controller.text
+              : null,
+          decoration: InputDecoration(labelText: label),
+          items: [
+            for (final option in custom.options.where(
+              (o) => o.active || o.id == controller.text,
+            ))
+              DropdownMenuItem(
+                value: option.id,
+                child: Text(
+                  option.active
+                      ? option.label
+                      : '${option.label} (Không còn sử dụng)',
+                ),
+              ),
+          ],
+          onChanged: (value) => controller.text = value ?? '',
+          validator: validate,
+        );
+      } else if (type == ProfileFieldType.date) {
+        field = TextFormField(
+          controller: controller,
+          readOnly: true,
+          decoration: InputDecoration(
+            labelText: label,
+            suffixIcon: const Icon(Icons.calendar_today_outlined),
+          ),
+          onTap: () async {
+            final initial = DateTime.tryParse(controller.text);
+            await _pickDate(
+              initial,
+              (date) => setState(() {
+                controller.text = date.toIso8601String().split('T').first;
+              }),
+            );
+          },
+          validator: validate,
+        );
+      } else {
+        field = TextFormField(
+          controller: controller,
+          decoration: InputDecoration(labelText: label),
+          maxLines: type == ProfileFieldType.multiline ? 3 : 1,
+          keyboardType: switch (type) {
+            ProfileFieldType.number ||
+            ProfileFieldType.year => TextInputType.number,
+            _ => TextInputType.text,
+          },
+          validator: validate,
+        );
+      }
+      result.addAll([const SizedBox(height: 12), field]);
+    }
+    return result;
   }
-  return Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Expanded(child: left),
-      const SizedBox(width: 16),
-      Expanded(child: right),
-    ],
-  );
+
+  TextEditingController _controllerFor(String fieldId) => switch (fieldId) {
+    'fullName' => _nameCtrl,
+    'phone' => _phoneCtrl,
+    'workTarget' => _workTargetCtrl,
+    'description' => _descCtrl,
+    'note' => _noteCtrl,
+    _ => _dynamicCtrls.putIfAbsent(
+      fieldId,
+      () => TextEditingController(
+        text: widget.profile?.customFieldValues[fieldId]?.toString() ?? '',
+      ),
+    ),
+  };
 }

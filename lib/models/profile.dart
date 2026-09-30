@@ -64,6 +64,25 @@ class Profile {
   final String? waitingReason;
   final DateTime? waitingSince;
   final DateTime? expectedResponseDate;
+  final DateTime? dateOfBirth;
+  final String? citizenId, rank, position, unit, enlistment, hometown;
+  final String? currentResidence,
+      educationLevel,
+      specialty,
+      schoolHistory,
+      officerRating;
+  final String? fatherFullName,
+      fatherOccupation,
+      fatherHometown,
+      fatherCurrentResidence;
+  final int? fatherBirthYear;
+  final String? motherFullName,
+      motherOccupation,
+      motherHometown,
+      motherCurrentResidence;
+  final int? motherBirthYear;
+  final String? aspiration1, aspiration2, aspiration3;
+  final Map<String, dynamic> customFieldValues;
 
   const Profile({
     required this.id,
@@ -84,6 +103,32 @@ class Profile {
     this.waitingReason,
     this.waitingSince,
     this.expectedResponseDate,
+    this.dateOfBirth,
+    this.citizenId,
+    this.rank,
+    this.position,
+    this.unit,
+    this.enlistment,
+    this.hometown,
+    this.currentResidence,
+    this.educationLevel,
+    this.specialty,
+    this.schoolHistory,
+    this.officerRating,
+    this.fatherFullName,
+    this.fatherBirthYear,
+    this.fatherOccupation,
+    this.fatherHometown,
+    this.fatherCurrentResidence,
+    this.motherFullName,
+    this.motherBirthYear,
+    this.motherOccupation,
+    this.motherHometown,
+    this.motherCurrentResidence,
+    this.aspiration1,
+    this.aspiration2,
+    this.aspiration3,
+    this.customFieldValues = const {},
   });
 
   Profile copyWith({
@@ -110,6 +155,32 @@ class Profile {
     bool clearWaitingSince = false,
     DateTime? expectedResponseDate,
     bool clearExpectedResponseDate = false,
+    DateTime? dateOfBirth,
+    String? citizenId,
+    String? rank,
+    String? position,
+    String? unit,
+    String? enlistment,
+    String? hometown,
+    String? currentResidence,
+    String? educationLevel,
+    String? specialty,
+    String? schoolHistory,
+    String? officerRating,
+    String? fatherFullName,
+    int? fatherBirthYear,
+    String? fatherOccupation,
+    String? fatherHometown,
+    String? fatherCurrentResidence,
+    String? motherFullName,
+    int? motherBirthYear,
+    String? motherOccupation,
+    String? motherHometown,
+    String? motherCurrentResidence,
+    String? aspiration1,
+    String? aspiration2,
+    String? aspiration3,
+    Map<String, dynamic>? customFieldValues,
   }) {
     return Profile(
       id: id ?? this.id,
@@ -126,18 +197,124 @@ class Profile {
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      completedAt:
-          clearCompletedAt ? null : (completedAt ?? this.completedAt),
+      completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
       waitingReason: clearWaitingReason
           ? null
           : (waitingReason ?? this.waitingReason),
-      waitingSince:
-          clearWaitingSince ? null : (waitingSince ?? this.waitingSince),
+      waitingSince: clearWaitingSince
+          ? null
+          : (waitingSince ?? this.waitingSince),
       expectedResponseDate: clearExpectedResponseDate
           ? null
           : (expectedResponseDate ?? this.expectedResponseDate),
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      citizenId: citizenId ?? this.citizenId,
+      rank: rank ?? this.rank,
+      position: position ?? this.position,
+      unit: unit ?? this.unit,
+      enlistment: enlistment ?? this.enlistment,
+      hometown: hometown ?? this.hometown,
+      currentResidence: currentResidence ?? this.currentResidence,
+      educationLevel: educationLevel ?? this.educationLevel,
+      specialty: specialty ?? this.specialty,
+      schoolHistory: schoolHistory ?? this.schoolHistory,
+      officerRating: officerRating ?? this.officerRating,
+      fatherFullName: fatherFullName ?? this.fatherFullName,
+      fatherBirthYear: fatherBirthYear ?? this.fatherBirthYear,
+      fatherOccupation: fatherOccupation ?? this.fatherOccupation,
+      fatherHometown: fatherHometown ?? this.fatherHometown,
+      fatherCurrentResidence:
+          fatherCurrentResidence ?? this.fatherCurrentResidence,
+      motherFullName: motherFullName ?? this.motherFullName,
+      motherBirthYear: motherBirthYear ?? this.motherBirthYear,
+      motherOccupation: motherOccupation ?? this.motherOccupation,
+      motherHometown: motherHometown ?? this.motherHometown,
+      motherCurrentResidence:
+          motherCurrentResidence ?? this.motherCurrentResidence,
+      aspiration1: aspiration1 ?? this.aspiration1,
+      aspiration2: aspiration2 ?? this.aspiration2,
+      aspiration3: aspiration3 ?? this.aspiration3,
+      customFieldValues: customFieldValues ?? this.customFieldValues,
     );
   }
+
+  /// Replaces every dynamic profile value, including with `null`.
+  ///
+  /// This is intentionally separate from [copyWith], whose nullable arguments
+  /// mean "keep the current value" for backward compatibility.
+  Profile replaceDynamicValues({
+    DateTime? dateOfBirth,
+    String? citizenId,
+    String? rank,
+    String? position,
+    String? unit,
+    String? enlistment,
+    String? hometown,
+    String? currentResidence,
+    String? educationLevel,
+    String? specialty,
+    String? schoolHistory,
+    String? officerRating,
+    String? fatherFullName,
+    int? fatherBirthYear,
+    String? fatherOccupation,
+    String? fatherHometown,
+    String? fatherCurrentResidence,
+    String? motherFullName,
+    int? motherBirthYear,
+    String? motherOccupation,
+    String? motherHometown,
+    String? motherCurrentResidence,
+    String? aspiration1,
+    String? aspiration2,
+    String? aspiration3,
+    required Map<String, dynamic> customFieldValues,
+  }) => Profile(
+    id: id,
+    groupId: groupId,
+    fullName: fullName,
+    phone: phone,
+    workTarget: workTarget,
+    description: description,
+    startDate: startDate,
+    deadline: deadline,
+    hasDeadline: hasDeadline,
+    status: status,
+    totalAmount: totalAmount,
+    note: note,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    completedAt: completedAt,
+    waitingReason: waitingReason,
+    waitingSince: waitingSince,
+    expectedResponseDate: expectedResponseDate,
+    dateOfBirth: dateOfBirth,
+    citizenId: citizenId,
+    rank: rank,
+    position: position,
+    unit: unit,
+    enlistment: enlistment,
+    hometown: hometown,
+    currentResidence: currentResidence,
+    educationLevel: educationLevel,
+    specialty: specialty,
+    schoolHistory: schoolHistory,
+    officerRating: officerRating,
+    fatherFullName: fatherFullName,
+    fatherBirthYear: fatherBirthYear,
+    fatherOccupation: fatherOccupation,
+    fatherHometown: fatherHometown,
+    fatherCurrentResidence: fatherCurrentResidence,
+    motherFullName: motherFullName,
+    motherBirthYear: motherBirthYear,
+    motherOccupation: motherOccupation,
+    motherHometown: motherHometown,
+    motherCurrentResidence: motherCurrentResidence,
+    aspiration1: aspiration1,
+    aspiration2: aspiration2,
+    aspiration3: aspiration3,
+    customFieldValues: customFieldValues,
+  );
 
   factory Profile.fromJson(Map<String, dynamic> json) {
     return Profile(
@@ -167,6 +344,36 @@ class Profile {
       expectedResponseDate: json['expectedResponseDate'] != null
           ? DateTime.parse(json['expectedResponseDate'] as String)
           : null,
+      dateOfBirth: json['dateOfBirth'] == null
+          ? null
+          : DateTime.parse(json['dateOfBirth'] as String),
+      citizenId: json['citizenId'] as String?,
+      rank: json['rank'] as String?,
+      position: json['position'] as String?,
+      unit: json['unit'] as String?,
+      enlistment: json['enlistment'] as String?,
+      hometown: json['hometown'] as String?,
+      currentResidence: json['currentResidence'] as String?,
+      educationLevel: json['educationLevel'] as String?,
+      specialty: json['specialty'] as String?,
+      schoolHistory: json['schoolHistory'] as String?,
+      officerRating: json['officerRating'] as String?,
+      fatherFullName: json['fatherFullName'] as String?,
+      fatherBirthYear: json['fatherBirthYear'] as int?,
+      fatherOccupation: json['fatherOccupation'] as String?,
+      fatherHometown: json['fatherHometown'] as String?,
+      fatherCurrentResidence: json['fatherCurrentResidence'] as String?,
+      motherFullName: json['motherFullName'] as String?,
+      motherBirthYear: json['motherBirthYear'] as int?,
+      motherOccupation: json['motherOccupation'] as String?,
+      motherHometown: json['motherHometown'] as String?,
+      motherCurrentResidence: json['motherCurrentResidence'] as String?,
+      aspiration1: json['aspiration1'] as String?,
+      aspiration2: json['aspiration2'] as String?,
+      aspiration3: json['aspiration3'] as String?,
+      customFieldValues: Map<String, dynamic>.from(
+        json['customFieldValues'] as Map? ?? const {},
+      ),
     );
   }
 
@@ -190,6 +397,32 @@ class Profile {
       'waitingReason': waitingReason,
       'waitingSince': waitingSince?.toIso8601String(),
       'expectedResponseDate': expectedResponseDate?.toIso8601String(),
+      'dateOfBirth': dateOfBirth?.toIso8601String(),
+      'citizenId': citizenId,
+      'rank': rank,
+      'position': position,
+      'unit': unit,
+      'enlistment': enlistment,
+      'hometown': hometown,
+      'currentResidence': currentResidence,
+      'educationLevel': educationLevel,
+      'specialty': specialty,
+      'schoolHistory': schoolHistory,
+      'officerRating': officerRating,
+      'fatherFullName': fatherFullName,
+      'fatherBirthYear': fatherBirthYear,
+      'fatherOccupation': fatherOccupation,
+      'fatherHometown': fatherHometown,
+      'fatherCurrentResidence': fatherCurrentResidence,
+      'motherFullName': motherFullName,
+      'motherBirthYear': motherBirthYear,
+      'motherOccupation': motherOccupation,
+      'motherHometown': motherHometown,
+      'motherCurrentResidence': motherCurrentResidence,
+      'aspiration1': aspiration1,
+      'aspiration2': aspiration2,
+      'aspiration3': aspiration3,
+      'customFieldValues': customFieldValues,
     };
   }
 }

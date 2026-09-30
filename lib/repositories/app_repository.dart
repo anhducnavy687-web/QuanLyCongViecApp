@@ -168,9 +168,27 @@ abstract class AppRepository extends ChangeNotifier {
   // WorkGroup
   // ---------------------------------------------------------------------
   Future<WorkGroup> addGroup({required String name, String description = ''}) =>
-      runTrackedWrite(() => addGroupImpl(name: name, description: description));
+      addGroupConfigured(name: name, description: description);
+  Future<WorkGroup> addGroupConfigured({
+    required String name,
+    String description = '',
+    List<ProfileFieldConfig>? profileFieldConfigs,
+    List<CustomFieldDefinition>? customFieldDefinitions,
+  }) => runTrackedWrite(
+    () => addGroupImpl(
+      name: name,
+      description: description,
+      profileFieldConfigs: profileFieldConfigs,
+      customFieldDefinitions: customFieldDefinitions,
+    ),
+  );
   @protected
-  Future<WorkGroup> addGroupImpl({required String name, String description});
+  Future<WorkGroup> addGroupImpl({
+    required String name,
+    String description,
+    List<ProfileFieldConfig>? profileFieldConfigs,
+    List<CustomFieldDefinition>? customFieldDefinitions,
+  });
   Future<void> updateGroup(WorkGroup group) =>
       runTrackedWrite(() => updateGroupImpl(group));
   @protected

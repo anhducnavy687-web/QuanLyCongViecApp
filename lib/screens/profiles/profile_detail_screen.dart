@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../../core/extensions/context_extensions.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/utils/repository_action.dart';
+import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
+import '../../services/profile_field_resolver.dart';
 import '../../widgets/attachment_section.dart';
 import '../../widgets/collaborator_assignment_section.dart';
 import '../../widgets/empty_state.dart';
@@ -207,6 +209,16 @@ class _OverviewTab extends StatelessWidget {
     final repo = context.watch<AppRepository>();
     final profile = repo.profileById(profileId)!;
     final aggregate = repo.aggregateOf(profileId);
+    final group = aggregate.group;
+    final dynamicFields = group == null
+        ? const <ResolvedProfileField>[]
+        : const ProfileFieldResolver().resolve(group, profile).where((field) {
+            final value = const ProfileFieldResolver().displayValue(
+              field,
+              group,
+            );
+            return value.isNotEmpty || field.required;
+          }).toList();
 
     return ResponsivePage(
       maxContentWidth: 720,
@@ -219,34 +231,7 @@ class _OverviewTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 16,
-                        color: context.colors.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          profile.workTarget,
-                          style: context.textTheme.titleMedium,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
                   Row(children: [StatusBadge(status: profile.status)]),
-                  if (profile.phone.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Icon(Icons.phone_outlined, size: 16),
-                        const SizedBox(width: 6),
-                        Text(profile.phone),
-                      ],
-                    ),
-                  ],
                   if (aggregate.group != null) ...[
                     const SizedBox(height: 6),
                     Row(
@@ -257,33 +242,84 @@ class _OverviewTab extends StatelessWidget {
                       ],
                     ),
                   ],
-                  if (profile.description.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      profile.description,
-                      style: context.textTheme.bodyMedium,
-                    ),
-                  ],
                   const SizedBox(height: 14),
                   TimelineBar(
                     startDate: profile.startDate,
                     deadline: profile.deadline,
                     hasDeadline: profile.hasDeadline,
                   ),
-                  if (profile.note.isNotEmpty) ...[
-                    const Divider(height: 24),
-                    Text('Ghi chú', style: context.textTheme.labelLarge),
-                    const SizedBox(height: 4),
-                    Text(profile.note, style: context.textTheme.bodyMedium),
-                  ],
                 ],
               ),
             ),
           ),
+          if (group != null && dynamicFields.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final section in ProfileFieldSection.values)
+                      if (dynamicFields.any((f) => f.section == section)) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, bottom: 4),
+                          child: Text(switch (section) {
+                            ProfileFieldSection.subject =>
+                              'Thông tin đối tượng',
+                            ProfileFieldSection.family => 'Thông tin gia đình',
+                            ProfileFieldSection.workContent =>
+                              'Nội dung công việc',
+                            ProfileFieldSection.aspiration => 'Nguyện vọng',
+                          }, style: context.textTheme.titleMedium),
+                        ),
+                        for (final field in dynamicFields.where(
+                          (f) => f.section == section,
+                        ))
+                          _DynamicDetailRow(field: field, group: group),
+                      ],
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           ProfileTimelineSection(profileId: profileId),
         ],
       ),
+    );
+  }
+}
+
+class _DynamicDetailRow extends StatelessWidget {
+  const _DynamicDetailRow({required this.field, required this.group});
+  final ResolvedProfileField field;
+  final WorkGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = const ProfileFieldResolver().displayValue(field, group);
+    final isFather = field.id.startsWith('father');
+    final isMother = field.id.startsWith('mother');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (field.id == 'fatherFullName' || field.id == 'motherFullName')
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              isFather ? 'Thông tin bố' : (isMother ? 'Thông tin mẹ' : ''),
+              style: context.textTheme.labelLarge,
+            ),
+          ),
+        const Divider(height: 16),
+        Text(field.label, style: context.textTheme.labelMedium),
+        const SizedBox(height: 2),
+        Text(
+          value.isEmpty ? 'Chưa có thông tin' : value,
+          style: TextStyle(color: value.isEmpty ? context.colors.error : null),
+        ),
+      ],
     );
   }
 }
