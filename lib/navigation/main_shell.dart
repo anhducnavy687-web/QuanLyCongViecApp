@@ -206,7 +206,7 @@ class _MainShellState extends State<MainShell> {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) =>
-                ProfileDetailScreen(profileId: profileId, initialTabIndex: 4),
+                ProfileDetailScreen(profileId: profileId, initialTabIndex: 3),
           ),
         );
         break;
@@ -222,7 +222,7 @@ class _MainShellState extends State<MainShell> {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) =>
-                ProfileDetailScreen(profileId: profileId, initialTabIndex: 6),
+                ProfileDetailScreen(profileId: profileId, initialTabIndex: 4),
           ),
         );
         break;

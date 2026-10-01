@@ -175,6 +175,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     return SectionCard(
       title: 'Tài liệu / File đính kèm',
       trailing: IconButton(
+        tooltip: 'Thêm tài liệu',
         icon: _busy
             ? const SizedBox(
                 width: 18,

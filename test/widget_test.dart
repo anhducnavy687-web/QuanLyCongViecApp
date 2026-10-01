@@ -23,11 +23,13 @@ Future<AppSession> _bootDemoApp(WidgetTester tester) async {
   final session = AppSession();
   await session.enterDemoMode();
 
-  await tester.pumpWidget(QlcvApp(
-    session: session,
-    themeController: ThemeController(),
-    connectivityService: ConnectivityService(),
-  ));
+  await tester.pumpWidget(
+    QlcvApp(
+      session: session,
+      themeController: ThemeController(),
+      connectivityService: ConnectivityService(),
+    ),
+  );
 
   // Material 3 dùng hiệu ứng ripple (InkSparkle) chạy animation liên tục
   // khi có tương tác gần đây, nên tránh pumpAndSettle() (có thể không bao
@@ -42,7 +44,10 @@ Future<AppSession> _bootDemoApp(WidgetTester tester) async {
 /// dung mong muốn không còn chắc chắn nằm trong viewport ban đầu của bài
 /// test — cuộn tới khi thấy trước khi tìm/chạm, phản ánh đúng trải nghiệm
 /// cuộn tự nhiên trên điện thoại.
-Future<void> _scrollDashboardUntilVisible(WidgetTester tester, Finder finder) async {
+Future<void> _scrollDashboardUntilVisible(
+  WidgetTester tester,
+  Finder finder,
+) async {
   await tester.dragUntilVisible(
     finder,
     find.byType(Scrollable).first,
@@ -53,7 +58,9 @@ Future<void> _scrollDashboardUntilVisible(WidgetTester tester, Finder finder) as
 }
 
 void main() {
-  testWidgets('Demo Mode boots and shows Dashboard with seeded data', (tester) async {
+  testWidgets('Demo Mode boots and shows Dashboard with seeded data', (
+    tester,
+  ) async {
     await _bootDemoApp(tester);
 
     // "Trang chủ" xuất hiện cả ở AppBar lẫn nhãn tab điều hướng dưới cùng.
@@ -68,40 +75,52 @@ void main() {
     expect(overdueText, findsWidgets);
   });
 
-  testWidgets('Mở được ProfileDetailScreen từ Dashboard mà không lỗi Provider', (tester) async {
-    await _bootDemoApp(tester);
+  testWidgets(
+    'Mở được ProfileDetailScreen từ Dashboard mà không lỗi Provider',
+    (tester) async {
+      await _bootDemoApp(tester);
 
-    // Cuộn tới một hồ sơ cụ thể (khớp đúng 1 kết quả) rồi chạm vào
-    // ProfileCard chứa nó — tránh dùng find.byType(ProfileCard) làm đích
-    // cuộn vì một khi nhiều card cùng lọt vào khung nhìn, WidgetController
-    // không còn xác định được phần tử duy nhất để kiểm tra tiếp.
-    final overdueText = find.textContaining('Làm căn cước công dân gắn chip');
-    await _scrollDashboardUntilVisible(tester, overdueText);
-    final overdueCard = find.ancestor(of: overdueText, matching: find.byType(ProfileCard));
-    expect(overdueCard, findsOneWidget);
-    await tester.tap(overdueCard);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+      // Cuộn tới một hồ sơ cụ thể (khớp đúng 1 kết quả) rồi chạm vào
+      // ProfileCard chứa nó — tránh dùng find.byType(ProfileCard) làm đích
+      // cuộn vì một khi nhiều card cùng lọt vào khung nhìn, WidgetController
+      // không còn xác định được phần tử duy nhất để kiểm tra tiếp.
+      final overdueText = find.textContaining('Làm căn cước công dân gắn chip');
+      await _scrollDashboardUntilVisible(tester, overdueText);
+      final overdueCard = find.ancestor(
+        of: overdueText,
+        matching: find.byType(ProfileCard),
+      );
+      expect(overdueCard, findsOneWidget);
+      await tester.tap(overdueCard);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-    // Không có exception nào được flutter_test ghi nhận trong quá trình
-    // điều hướng (đặc biệt là ProviderNotFoundException<AppRepository>).
-    expect(tester.takeException(), isNull);
-    // Trang chi tiết phải mở ra được, có nút "Trích ngang".
-    expect(find.byTooltip('Trích ngang'), findsOneWidget);
-    // Hồ sơ 360°: đủ 7 tab, bao gồm 2 tab mới của Phase 1.
-    expect(find.text('Tổng quan'), findsWidgets);
-    expect(find.text('Việc cần làm'), findsWidgets);
-    expect(find.text('Mốc thời gian'), findsWidgets);
-  });
+      // Không có exception nào được flutter_test ghi nhận trong quá trình
+      // điều hướng (đặc biệt là ProviderNotFoundException<AppRepository>).
+      expect(tester.takeException(), isNull);
+      // Trang chi tiết phải mở ra được, có nút "Trích ngang".
+      expect(find.byTooltip('Trích ngang'), findsOneWidget);
+      // Profile Detail Phase 1.7: đúng 5 khu thông tin cấp cao.
+      expect(find.text('Tổng quan'), findsWidgets);
+      expect(find.text('Thông tin'), findsWidgets);
+      expect(find.text('Công việc'), findsWidgets);
+      expect(find.text('Tài chính & CTV'), findsWidgets);
+      expect(find.text('Tài liệu & Lịch sử'), findsWidgets);
+    },
+  );
 
-  testWidgets('Dashboard hiển thị "Việc hôm nay" từ dữ liệu Demo', (tester) async {
+  testWidgets('Dashboard hiển thị "Việc hôm nay" từ dữ liệu Demo', (
+    tester,
+  ) async {
     await _bootDemoApp(tester);
 
     // Dữ liệu Demo seed có sẵn ít nhất một task có dueDate = hôm nay.
     expect(find.textContaining('Việc hôm nay'), findsOneWidget);
   });
 
-  testWidgets('Chạm StatPill "Đang chờ" mở SearchScreen với filter tương ứng', (tester) async {
+  testWidgets('Chạm StatPill "Đang chờ" mở SearchScreen với filter tương ứng', (
+    tester,
+  ) async {
     await _bootDemoApp(tester);
 
     await tester.tap(find.text('Đang chờ').first);
@@ -113,7 +132,9 @@ void main() {
     expect(find.text('Đang chờ'), findsWidgets);
   });
 
-  testWidgets('Mở được màn hình Việc cần làm (TasksScreen) từ Dashboard', (tester) async {
+  testWidgets('Mở được màn hình Việc cần làm (TasksScreen) từ Dashboard', (
+    tester,
+  ) async {
     await _bootDemoApp(tester);
 
     await tester.tap(find.byTooltip('Việc cần làm'));

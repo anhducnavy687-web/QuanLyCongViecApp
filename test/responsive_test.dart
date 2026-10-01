@@ -36,7 +36,13 @@ const _desktopSizes = <String, Size>{
   '1920x1080': Size(1920, 1080),
 };
 
-const _tabTitles = ['Tổng quan', 'Bước xử lý', 'Việc cần làm', 'Mốc thời gian', 'Tiền', 'Cộng tác viên', 'Tài liệu'];
+const _tabTitles = [
+  'Tổng quan',
+  'Thông tin',
+  'Công việc',
+  'Tài chính & CTV',
+  'Tài liệu & Lịch sử',
+];
 
 /// Cuộn tới khi [finder] tồn tại VÀ nằm gọn trong khung nhìn hiện tại —
 /// tự viết thay vì dùng `dragUntilVisible` vì helper đó chỉ kiểm tra widget
@@ -44,7 +50,11 @@ const _tabTitles = ['Tổng quan', 'Bước xử lý', 'Việc cần làm', 'M�
 /// ListView, chưa thực sự cuộn tới), dẫn tới tap trượt ra ngoài màn hình ở
 /// những khung hình cao vừa phải (VD 412x915) khi Dashboard có nhiều mục
 /// xem nhanh phía trên.
-Future<void> _scrollUntilFullyVisible(WidgetTester tester, Finder finder, {int maxIterations = 50}) async {
+Future<void> _scrollUntilFullyVisible(
+  WidgetTester tester,
+  Finder finder, {
+  int maxIterations = 50,
+}) async {
   final scrollable = find.byType(Scrollable).first;
   // Bước 1: cuộn thô tới khi widget được DỰNG trong cây (ListView ảo hóa
   // chỉ dựng phần tử trong/gần khung nhìn).
@@ -52,7 +62,11 @@ Future<void> _scrollUntilFullyVisible(WidgetTester tester, Finder finder, {int m
     await tester.drag(scrollable, const Offset(0, -250));
     await tester.pump();
   }
-  expect(finder.evaluate(), isNotEmpty, reason: 'Không tìm thấy widget sau $maxIterations lần cuộn');
+  expect(
+    finder.evaluate(),
+    isNotEmpty,
+    reason: 'Không tìm thấy widget sau $maxIterations lần cuộn',
+  );
   // Bước 2: dùng ensureVisible để định vị chính xác (đáng tin cậy hơn cuộn
   // thủ công vì tính toán đúng offset cần thiết thay vì đoán từng bước).
   await tester.ensureVisible(finder);
@@ -63,11 +77,13 @@ Future<void> _runLayoutCheck(WidgetTester tester, String sizeLabel) async {
   SharedPreferences.setMockInitialValues({});
   final session = AppSession();
   await session.enterDemoMode();
-  await tester.pumpWidget(QlcvApp(
-    session: session,
-    themeController: ThemeController(),
-    connectivityService: ConnectivityService(),
-  ));
+  await tester.pumpWidget(
+    QlcvApp(
+      session: session,
+      themeController: ThemeController(),
+      connectivityService: ConnectivityService(),
+    ),
+  );
   await tester.pump();
   await tester.pumpAndSettle();
   expect(tester.takeException(), isNull, reason: 'Dashboard ($sizeLabel)');
@@ -82,17 +98,24 @@ Future<void> _runLayoutCheck(WidgetTester tester, String sizeLabel) async {
     expect(tester.takeException(), isNull, reason: '$label ($sizeLabel)');
   }
 
-  // Hồ sơ 360°: mở một hồ sơ rồi lướt qua đủ 7 tab. Cuộn tới một hồ sơ
+  // Hồ sơ 360°: mở một hồ sơ rồi lướt qua đủ 5 tab. Cuộn tới một hồ sơ
   // CỤ THỂ (khớp đúng 1 kết quả) thay vì find.byType(ProfileCard) —
   // một khi nhiều card cùng lọt vào khung nhìn, WidgetController không
   // còn xác định được phần tử duy nhất để hoàn tất dragUntilVisible.
   final overdueText = find.textContaining('Làm căn cước công dân gắn chip');
   await _scrollUntilFullyVisible(tester, overdueText);
-  final overdueCard = find.ancestor(of: overdueText, matching: find.byType(ProfileCard));
+  final overdueCard = find.ancestor(
+    of: overdueText,
+    matching: find.byType(ProfileCard),
+  );
   await tester.tap(overdueCard);
   await tester.pump();
   await tester.pumpAndSettle();
-  expect(tester.takeException(), isNull, reason: 'ProfileDetail mở ($sizeLabel)');
+  expect(
+    tester.takeException(),
+    isNull,
+    reason: 'ProfileDetail mở ($sizeLabel)',
+  );
 
   // TabBar cuộn ngang (isScrollable: true) nên ở màn hình hẹp, các tab
   // sau không nằm sẵn trong khung nhìn — cần ensureVisible trước khi
@@ -104,7 +127,11 @@ Future<void> _runLayoutCheck(WidgetTester tester, String sizeLabel) async {
     await tester.tap(tabFinder);
     await tester.pump();
     await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull, reason: 'ProfileDetail tab "$tabLabel" ($sizeLabel)');
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'ProfileDetail tab "$tabLabel" ($sizeLabel)',
+    );
 
     // Mở AddEditTaskScreen bằng Navigator.push trực tiếp thay vì mô
     // phỏng chạm vào nút "+" — nút đó nằm trong SectionCard lồng sâu
@@ -113,14 +140,22 @@ Future<void> _runLayoutCheck(WidgetTester tester, String sizeLabel) async {
     // đây là kiểm tra AddEditTaskScreen không vỡ layout ở từng kích
     // thước, không phải kiểm tra lại thao tác điều hướng (đã có test
     // riêng trong widget_test.dart).
-    if (tabLabel == 'Việc cần làm') {
+    if (tabLabel == 'Công việc') {
       final navContext = tester.element(find.byType(Scaffold).first);
       Navigator.of(navContext).push(
-        MaterialPageRoute(builder: (_) => AddEditTaskScreen(profileId: session.repository!.profiles.first.id)),
+        MaterialPageRoute(
+          builder: (_) => AddEditTaskScreen(
+            profileId: session.repository!.profiles.first.id,
+          ),
+        ),
       );
       await tester.pump();
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull, reason: 'AddEditTaskScreen ($sizeLabel)');
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'AddEditTaskScreen ($sizeLabel)',
+      );
       expect(find.byType(AddEditTaskScreen), findsOneWidget);
       Navigator.of(tester.element(find.byType(AddEditTaskScreen))).pop();
       await tester.pump();
@@ -130,7 +165,11 @@ Future<void> _runLayoutCheck(WidgetTester tester, String sizeLabel) async {
 }
 
 void main() {
-  for (final entry in {..._phoneSizes, ..._tabletSizes, ..._desktopSizes}.entries) {
+  for (final entry in {
+    ..._phoneSizes,
+    ..._tabletSizes,
+    ..._desktopSizes,
+  }.entries) {
     testWidgets('Không lỗi layout ở ${entry.key}', (tester) async {
       tester.view.physicalSize = entry.value;
       tester.view.devicePixelRatio = 1.0;
@@ -152,26 +191,45 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final session = AppSession();
       await session.enterDemoMode();
-      await tester.pumpWidget(QlcvApp(
-        session: session,
-        themeController: ThemeController(),
-        connectivityService: ConnectivityService(),
-      ));
+      await tester.pumpWidget(
+        QlcvApp(
+          session: session,
+          themeController: ThemeController(),
+          connectivityService: ConnectivityService(),
+        ),
+      );
       await tester.pump();
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull, reason: 'Dashboard ban đầu (1440x900)');
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Dashboard ban đầu (1440x900)',
+      );
 
       // Mở một hồ sơ TRƯỚC khi resize để có state điều hướng (route đã
       // push) cần kiểm tra không bị mất qua các lần đổi cỡ màn hình.
       final overdueText = find.textContaining('Làm căn cước công dân gắn chip');
       await _scrollUntilFullyVisible(tester, overdueText);
-      final overdueCard = find.ancestor(of: overdueText, matching: find.byType(ProfileCard));
+      final overdueCard = find.ancestor(
+        of: overdueText,
+        matching: find.byType(ProfileCard),
+      );
       await tester.tap(overdueCard);
       await tester.pump();
       await tester.pumpAndSettle();
-      expect(find.byType(ProfileDetailScreen), findsOneWidget, reason: 'Route ProfileDetail chưa mở trước khi resize');
+      expect(
+        find.byType(ProfileDetailScreen),
+        findsOneWidget,
+        reason: 'Route ProfileDetail chưa mở trước khi resize',
+      );
 
-      const sequence = [Size(1440, 900), Size(800, 1000), Size(430, 932), Size(390, 844), Size(1440, 900)];
+      const sequence = [
+        Size(1440, 900),
+        Size(800, 1000),
+        Size(430, 932),
+        Size(390, 844),
+        Size(1440, 900),
+      ];
       for (final size in sequence) {
         tester.view.physicalSize = size;
         await tester.pump();
@@ -183,13 +241,21 @@ void main() {
         // Navigator vẫn còn nguyên (nếu ProviderNotFoundException xảy ra
         // trong lúc build lại theo kích thước mới, exception đã bị bắt ở
         // dòng expect(takeException) ngay phía trên).
-        expect(find.byType(ProfileDetailScreen), findsOneWidget, reason: 'Mất/nhân đôi route sau khi đổi cỡ sang $size');
+        expect(
+          find.byType(ProfileDetailScreen),
+          findsOneWidget,
+          reason: 'Mất/nhân đôi route sau khi đổi cỡ sang $size',
+        );
       }
 
       // Vẫn có thể pop về Dashboard bình thường — Navigator không bị mất.
       Navigator.of(tester.element(find.byType(ProfileDetailScreen))).pop();
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull, reason: 'Pop về Dashboard sau khi đổi cỡ nhiều lần');
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Pop về Dashboard sau khi đổi cỡ nhiều lần',
+      );
       expect(find.byType(ProfileDetailScreen), findsNothing);
     },
   );
