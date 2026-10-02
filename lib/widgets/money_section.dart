@@ -15,14 +15,36 @@ import 'section_card.dart';
 /// Khu vực tiền bạc trong trang chi tiết hồ sơ: tổng hợp tài chính + lịch
 /// sử giao dịch. Toàn bộ số liệu tổng được TÍNH TỪ transaction, không dùng
 /// số lưu sẵn nào khác — KHÔNG hiển thị phần trăm, KHÔNG gọi là "lợi nhuận".
-class MoneySection extends StatelessWidget {
+class MoneySection extends StatefulWidget {
   final String profileId;
-  const MoneySection({super.key, required this.profileId});
+  final bool openAddOnMount;
+  const MoneySection({
+    super.key,
+    required this.profileId,
+    this.openAddOnMount = false,
+  });
+
+  @override
+  State<MoneySection> createState() => _MoneySectionState();
+}
+
+class _MoneySectionState extends State<MoneySection> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.openAddOnMount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showAddTransactionDialog(context, context.read<AppRepository>());
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<AppRepository>();
-    final aggregate = repo.aggregateOf(profileId);
+    final aggregate = repo.aggregateOf(widget.profileId);
     final finance = aggregate.finance;
     final transactions = aggregate.transactions;
 
@@ -182,7 +204,7 @@ class MoneySection extends StatelessWidget {
                           await repo.addTransaction(
                             MoneyTransaction(
                               id: '',
-                              profileId: profileId,
+                              profileId: widget.profileId,
                               type: type,
                               amount: amount,
                               date: date,

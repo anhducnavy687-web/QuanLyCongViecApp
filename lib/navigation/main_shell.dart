@@ -5,6 +5,7 @@ import '../core/responsive/responsive.dart';
 import '../repositories/app_repository.dart';
 import '../screens/calendar/calendar_screen.dart';
 import '../screens/groups/groups_screen.dart';
+import '../screens/groups/add_edit_group_sheet.dart';
 import '../screens/home/dashboard_screen.dart';
 import '../screens/profiles/add_edit_profile_screen.dart';
 import '../screens/profiles/profile_detail_screen.dart';
@@ -65,10 +66,11 @@ class _MainShellState extends State<MainShell> {
     }
 
     final body = IndexedStack(index: _index, children: _screens);
-    final fab = _index == 0 || _index == 1
+    final fabConfig = _fabForCurrentDestination(context);
+    final fab = fabConfig != null
         ? FloatingActionButton(
-            onPressed: () => _showQuickActions(context),
-            tooltip: 'Tạo mới',
+            onPressed: fabConfig.onPressed,
+            tooltip: fabConfig.tooltip,
             child: const Icon(Icons.add),
           )
         : null;
@@ -126,50 +128,66 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  _FabConfig? _fabForCurrentDestination(BuildContext context) =>
+      switch (_index) {
+        0 => _FabConfig('Thêm nhanh', () => _showQuickActions(context)),
+        1 => _FabConfig(
+          'Thêm nhóm',
+          () => showResponsiveFormSheet(
+            context: context,
+            builder: (_) => const AddEditGroupSheet(),
+          ),
+        ),
+        _ => null,
+      };
+
   Future<void> _showQuickActions(BuildContext context) async {
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Tạo mới',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'THÊM NHANH',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 3),
+                      Text('Thao tác thường dùng'),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.person_add_alt_1_rounded),
-              title: const Text('Hồ sơ mới'),
-              onTap: () => Navigator.pop(ctx, 'profile'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.checklist_rounded),
-              title: const Text('Việc cần làm mới'),
-              onTap: () => Navigator.pop(ctx, 'task'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.attach_money_rounded),
-              title: const Text('Giao dịch mới'),
-              onTap: () => Navigator.pop(ctx, 'transaction'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.sticky_note_2_rounded),
-              title: const Text('Ghi chú mới'),
-              onTap: () => Navigator.pop(ctx, 'note'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.attach_file_rounded),
-              title: const Text('Tài liệu mới'),
-              onTap: () => Navigator.pop(ctx, 'document'),
-            ),
-            const SizedBox(height: 8),
-          ],
+              ListTile(
+                leading: const Icon(Icons.add_task_rounded),
+                title: const Text('Thêm công việc'),
+                subtitle: const Text('Tạo việc cần làm cho một hồ sơ'),
+                onTap: () => Navigator.pop(ctx, 'task'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.attach_money_rounded),
+                title: const Text('Thêm giao dịch'),
+                subtitle: const Text('Ghi nhận thu hoặc chi cho một hồ sơ'),
+                onTap: () => Navigator.pop(ctx, 'transaction'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_add_alt_1_rounded),
+                title: const Text('Thêm hồ sơ'),
+                subtitle: const Text('Tạo hồ sơ mới'),
+                onTap: () => Navigator.pop(ctx, 'profile'),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
@@ -205,8 +223,11 @@ class _MainShellState extends State<MainShell> {
       case 'transaction':
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) =>
-                ProfileDetailScreen(profileId: profileId, initialTabIndex: 3),
+            builder: (_) => ProfileDetailScreen(
+              profileId: profileId,
+              initialTabIndex: 3,
+              openTransactionForm: true,
+            ),
           ),
         );
         break;
@@ -241,4 +262,10 @@ class _TabInfo {
   final IconData icon;
   final IconData selectedIcon;
   const _TabInfo(this.label, this.icon, this.selectedIcon);
+}
+
+class _FabConfig {
+  const _FabConfig(this.tooltip, this.onPressed);
+  final String tooltip;
+  final VoidCallback onPressed;
 }

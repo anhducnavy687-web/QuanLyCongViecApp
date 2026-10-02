@@ -16,11 +16,13 @@ import 'widgets/profile_work_tab.dart';
 class ProfileDetailScreen extends StatelessWidget {
   final String profileId;
   final int initialTabIndex;
+  final bool openTransactionForm;
 
   const ProfileDetailScreen({
     super.key,
     required this.profileId,
     this.initialTabIndex = 0,
+    this.openTransactionForm = false,
   });
 
   static const _tabs = [
@@ -104,7 +106,10 @@ class ProfileDetailScreen extends StatelessWidget {
                   ProfileOverviewTab(profileId: profileId),
                   ProfileInformationTab(profileId: profileId),
                   ProfileWorkTab(profileId: profileId),
-                  ProfileFinanceCollaboratorTab(profileId: profileId),
+                  ProfileFinanceCollaboratorTab(
+                    profileId: profileId,
+                    openTransactionForm: openTransactionForm,
+                  ),
                   ProfileDocumentsHistoryTab(profileId: profileId),
                 ],
               ),

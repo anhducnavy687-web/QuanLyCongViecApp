@@ -6,7 +6,6 @@ import '../../core/responsive/responsive.dart';
 import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/empty_state.dart';
-import 'add_edit_group_sheet.dart';
 import 'group_detail_screen.dart';
 
 class GroupsScreen extends StatelessWidget {
@@ -18,19 +17,7 @@ class GroupsScreen extends StatelessWidget {
     final groups = repo.groups;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nhóm công việc'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            tooltip: 'Thêm nhóm',
-            onPressed: () => showResponsiveFormSheet(
-              context: context,
-              builder: (_) => const AddEditGroupSheet(),
-            ),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Nhóm công việc')),
       body: groups.isEmpty
           ? const EmptyState(
               icon: Icons.folder_off_outlined,
@@ -81,7 +68,7 @@ class _GroupCard extends StatelessWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -125,7 +112,7 @@ class _GroupCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -151,7 +138,7 @@ class _GroupCard extends StatelessWidget {
 
   Widget _miniStat(BuildContext context, String label, int value, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
