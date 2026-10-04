@@ -2,48 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/responsive/responsive.dart';
-import '../../core/utils/vietnamese_utils.dart';
-import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/profile_card.dart';
+import 'profile_list_query.dart';
 
-enum ProfileFilter {
-  all,
-  needsAction,
-  overdue,
-  today,
-  upcoming,
-  inProgress,
-  waiting,
-  noDeadline,
-  completed,
-}
-
-extension ProfileFilterX on ProfileFilter {
-  String get label {
-    switch (this) {
-      case ProfileFilter.all:
-        return 'Tất cả';
-      case ProfileFilter.needsAction:
-        return 'Cần xử lý';
-      case ProfileFilter.overdue:
-        return 'Quá hạn';
-      case ProfileFilter.today:
-        return 'Hôm nay';
-      case ProfileFilter.upcoming:
-        return 'Sắp đến hạn';
-      case ProfileFilter.inProgress:
-        return 'Đang xử lý';
-      case ProfileFilter.waiting:
-        return 'Đang chờ';
-      case ProfileFilter.noDeadline:
-        return 'Không có deadline';
-      case ProfileFilter.completed:
-        return 'Hoàn thành';
-    }
-  }
-}
+export 'profile_list_query.dart' show ProfileFilter;
 
 /// Màn hình tìm kiếm/lọc hồ sơ. Cũng dùng làm màn hình "drill-down" từ
 /// Dashboard: chạm vào một stat/section trên Dashboard sẽ mở màn hình này
@@ -65,98 +29,23 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _searchCtrl = TextEditingController();
   late ProfileFilter _filter = widget.initialFilter;
+  ProfileSort _sort = ProfileSort.urgency;
+  String? _groupId;
   String _query = '';
-
-  bool _matchesFilter(ProfileAggregate a) {
-    switch (_filter) {
-      case ProfileFilter.all:
-        return true;
-      case ProfileFilter.needsAction:
-        return a.deadlineCategory == DeadlineCategory.overdue ||
-            a.deadlineCategory == DeadlineCategory.dueToday ||
-            a.deadlineCategory == DeadlineCategory.upcoming ||
-            a.deadlineCategory == DeadlineCategory.stalled ||
-            a.isWaiting;
-      case ProfileFilter.overdue:
-        return a.deadlineCategory == DeadlineCategory.overdue;
-      case ProfileFilter.today:
-        return a.deadlineCategory == DeadlineCategory.dueToday;
-      case ProfileFilter.upcoming:
-        return a.deadlineCategory == DeadlineCategory.upcoming;
-      case ProfileFilter.inProgress:
-        return a.profile.status == ProfileStatus.inProgress;
-      case ProfileFilter.waiting:
-        return a.profile.status == ProfileStatus.waiting;
-      case ProfileFilter.noDeadline:
-        return !a.profile.hasDeadline;
-      case ProfileFilter.completed:
-        return a.profile.status == ProfileStatus.completed;
-    }
-  }
-
-  bool _matchesQuery(ProfileAggregate a) {
-    if (_query.isEmpty) return true;
-    // Bỏ dấu cả hai phía để tìm kiếm không phân biệt có dấu/không dấu
-    // (VD: gõ "nguyen van a" vẫn khớp "Nguyễn Văn A").
-    final q = VietnameseUtils.removeDiacritics(_query);
-    final p = a.profile;
-    bool has(String field) =>
-        VietnameseUtils.removeDiacritics(field).contains(q);
-    final dynamicValues = <Object?>[
-      p.citizenId,
-      p.rank,
-      p.position,
-      p.unit,
-      p.enlistment,
-      p.hometown,
-      p.currentResidence,
-      p.educationLevel,
-      p.specialty,
-      p.schoolHistory,
-      p.officerRating,
-      p.fatherFullName,
-      p.fatherBirthYear,
-      p.fatherOccupation,
-      p.fatherHometown,
-      p.fatherCurrentResidence,
-      p.motherFullName,
-      p.motherBirthYear,
-      p.motherOccupation,
-      p.motherHometown,
-      p.motherCurrentResidence,
-      p.aspiration1,
-      p.aspiration2,
-      p.aspiration3,
-      ...p.customFieldValues.values,
-      if (a.group != null)
-        for (final definition in a.group!.customFieldDefinitions)
-          for (final option in definition.options)
-            if (p.customFieldValues[definition.id] == option.id) option.label,
-    ];
-    return has(p.fullName) ||
-        has(p.phone) ||
-        has(p.workTarget) ||
-        has(p.description) ||
-        dynamicValues.any((value) => value != null && has(value.toString())) ||
-        has(p.status.label) ||
-        (a.group != null && has(a.group!.name)) ||
-        a.tasks.any(
-          (t) => has(t.title) || has(t.description) || has(t.status.label),
-        );
-  }
 
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<AppRepository>();
-    final results =
-        repo.allAggregates
-            .where((a) => _matchesQuery(a) && _matchesFilter(a))
-            .toList()
-          ..sort(
-            (a, b) => a.deadlineCategory.priority.compareTo(
-              b.deadlineCategory.priority,
-            ),
-          );
+    final results = ProfileListQuery.apply(
+      source: repo.allAggregates,
+      query: _query,
+      filter: _filter,
+      groupId: _groupId,
+      sort: _sort,
+    );
+    final selectedGroup = _groupId == null
+        ? null
+        : repo.groups.where((group) => group.id == _groupId).firstOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -195,11 +84,55 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
             const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showGroupFilter(context, repo),
+                      icon: const Icon(Icons.folder_outlined, size: 18),
+                      label: Text(
+                        selectedGroup?.name ?? 'Tất cả nhóm',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  PopupMenuButton<ProfileSort>(
+                    tooltip: 'Sắp xếp hồ sơ',
+                    initialValue: _sort,
+                    onSelected: (value) => setState(() => _sort = value),
+                    itemBuilder: (_) => [
+                      for (final value in ProfileSort.values)
+                        PopupMenuItem(value: value, child: Text(value.label)),
+                    ],
+                    child: Chip(
+                      avatar: const Icon(Icons.sort_rounded, size: 18),
+                      label: Text(_sort.label),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${results.length} hồ sơ',
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ),
+            ),
             Expanded(
               child: results.isEmpty
-                  ? const EmptyState(
+                  ? EmptyState(
                       icon: Icons.search_off_rounded,
-                      title: 'Không tìm thấy hồ sơ phù hợp',
+                      title: repo.profiles.isEmpty
+                          ? 'Chưa có hồ sơ'
+                          : 'Không tìm thấy hồ sơ phù hợp',
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
@@ -209,6 +142,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         child: ProfileCard(
                           aggregate: results[i],
                           showGroupLabel: true,
+                          compact: true,
                         ),
                       ),
                     ),
@@ -217,5 +151,48 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showGroupFilter(
+    BuildContext context,
+    AppRepository repo,
+  ) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(
+              title: Text(
+                'Lọc theo nhóm công việc',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            ListTile(
+              leading: Icon(
+                _groupId == null
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+              ),
+              title: const Text('Tất cả nhóm'),
+              onTap: () => Navigator.pop(context, ''),
+            ),
+            for (final group in repo.groups)
+              ListTile(
+                leading: Icon(
+                  _groupId == group.id
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                ),
+                title: Text(group.name),
+                onTap: () => Navigator.pop(context, group.id),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    setState(() => _groupId = selected.isEmpty ? null : selected);
   }
 }

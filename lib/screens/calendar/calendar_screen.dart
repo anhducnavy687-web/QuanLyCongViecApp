@@ -12,6 +12,15 @@ import '../profiles/profile_detail_screen.dart';
 
 enum _EventKind { deadline, milestone, start, completed }
 
+extension on _EventKind {
+  String get label => switch (this) {
+    _EventKind.deadline => 'Deadline hồ sơ',
+    _EventKind.milestone => 'Mốc công việc',
+    _EventKind.start => 'Ngày bắt đầu',
+    _EventKind.completed => 'Hoàn thành',
+  };
+}
+
 class _CalendarEvent {
   final DateTime date;
   final _EventKind kind;
@@ -150,6 +159,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 onSelect: (d) => setState(() => _selectedDay = d),
               ),
               const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Ngày ${_selectedDay.ddMMyyyy}',
+                    style: context.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
               if (selectedEvents.isEmpty)
                 SizedBox(
                   height: 240,
@@ -175,7 +196,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           radius: 6,
                           backgroundColor: _colorFor(e.kind),
                         ),
-                        title: Text(e.title),
+                        title: Text(
+                          e.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${e.kind.label} • ${e.date.ddMMyyyy}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) =>
@@ -303,55 +333,64 @@ class _MonthGrid extends StatelessWidget {
               final dayEvents = eventsByDay[day] ?? const [];
               final kinds = dayEvents.map((e) => e.kind).toSet();
 
-              return InkWell(
-                onTap: () => onSelect(day),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  margin: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: isSelected ? context.colors.primary : null,
-                    border: isToday && !isSelected
-                        ? Border.all(color: context.colors.primary, width: 1.5)
-                        : null,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '${day.day}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isToday || isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: isSelected ? context.colors.onPrimary : null,
-                        ),
-                      ),
-                      if (kinds.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              for (final k in kinds.take(3))
-                                Container(
-                                  width: 4,
-                                  height: 4,
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 1,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isSelected
-                                        ? context.colors.onPrimary
-                                        : colorFor(k),
-                                  ),
-                                ),
-                            ],
+              return Semantics(
+                button: true,
+                selected: isSelected,
+                label:
+                    'Ngày ${day.day}${isToday ? ', hôm nay' : ''}, ${dayEvents.length} sự kiện',
+                child: InkWell(
+                  onTap: () => onSelect(day),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    margin: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: isSelected ? context.colors.primary : null,
+                      border: isToday && !isSelected
+                          ? Border.all(
+                              color: context.colors.primary,
+                              width: 1.5,
+                            )
+                          : null,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${day.day}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isToday || isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected ? context.colors.onPrimary : null,
                           ),
                         ),
-                    ],
+                        if (kinds.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                for (final k in kinds.take(3))
+                                  Container(
+                                    width: 4,
+                                    height: 4,
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: isSelected
+                                          ? context.colors.onPrimary
+                                          : colorFor(k),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               );
