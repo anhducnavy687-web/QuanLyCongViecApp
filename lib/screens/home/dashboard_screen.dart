@@ -416,24 +416,73 @@ class _DashboardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _greeting(now),
-            style: context.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              context.colors.primaryContainer,
+              context.colors.primaryContainer.withValues(alpha: 0.45),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          const SizedBox(height: 2),
-          Text(
-            _headerDate(now),
-            style: context.textTheme.bodyMedium?.copyWith(
-              color: context.colors.onSurfaceVariant,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -12,
+              top: -20,
+              child: Container(
+                width: 86,
+                height: 86,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: context.colors.surface.withValues(alpha: 0.32),
+                ),
+              ),
             ),
-          ),
-        ],
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_greeting(now)}!',
+                  style: context.textTheme.headlineSmall?.copyWith(
+                    color: context.colors.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today_rounded,
+                      size: 15,
+                      color: context.colors.onPrimaryContainer.withValues(
+                        alpha: 0.72,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        _headerDate(now),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.textTheme.bodyMedium?.copyWith(
+                          color: context.colors.onPrimaryContainer.withValues(
+                            alpha: 0.78,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

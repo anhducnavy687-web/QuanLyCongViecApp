@@ -24,41 +24,51 @@ class StatPill extends StatelessWidget {
       label: onTap == null ? null : '$label, $value, nhấn để xem',
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-        width: 112,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: color),
-            ),
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(fontSize: 10.5, color: color.withValues(alpha: 0.85), height: 1.15),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+          width: 112,
+          constraints: const BoxConstraints(minHeight: 88),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.12)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 17, color: color),
+                  const Spacer(),
+                  if (onTap != null)
+                    Icon(Icons.chevron_right_rounded, size: 16, color: color),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 21,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                  color: color,
                 ),
-                if (onTap != null)
-                  Icon(Icons.chevron_right_rounded, size: 14, color: color),
-              ],
-            ),
-          ],
-        ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: color.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );

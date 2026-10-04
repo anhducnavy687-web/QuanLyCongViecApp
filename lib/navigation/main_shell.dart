@@ -79,6 +79,7 @@ class _MainShellState extends State<MainShell> {
       return Scaffold(
         body: body,
         floatingActionButton: fab,
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,
           onDestinationSelected: (i) => setState(() => _index = i),
@@ -147,46 +148,54 @@ class _MainShellState extends State<MainShell> {
       builder: (ctx) => SafeArea(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 14),
+                  child: Row(
                     children: [
-                      Text(
-                        'THÊM NHANH',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Text(
+                          'THÊM NHANH',
+                          style: Theme.of(ctx).textTheme.titleLarge,
+                        ),
                       ),
-                      SizedBox(height: 3),
-                      Text('Thao tác thường dùng'),
+                      IconButton(
+                        tooltip: 'Đóng',
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
                     ],
                   ),
                 ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.add_task_rounded),
-                title: const Text('Thêm công việc'),
-                subtitle: const Text('Tạo việc cần làm cho một hồ sơ'),
-                onTap: () => Navigator.pop(ctx, 'task'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.attach_money_rounded),
-                title: const Text('Thêm giao dịch'),
-                subtitle: const Text('Ghi nhận thu hoặc chi cho một hồ sơ'),
-                onTap: () => Navigator.pop(ctx, 'transaction'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.person_add_alt_1_rounded),
-                title: const Text('Thêm hồ sơ'),
-                subtitle: const Text('Tạo hồ sơ mới'),
-                onTap: () => Navigator.pop(ctx, 'profile'),
-              ),
-              const SizedBox(height: 8),
-            ],
+                _QuickActionTile(
+                  icon: Icons.add_task_rounded,
+                  title: 'Thêm công việc',
+                  subtitle: 'Tạo việc cần làm cho một hồ sơ',
+                  color: Theme.of(ctx).colorScheme.primary,
+                  onTap: () => Navigator.pop(ctx, 'task'),
+                ),
+                const SizedBox(height: 10),
+                _QuickActionTile(
+                  icon: Icons.attach_money_rounded,
+                  title: 'Thêm giao dịch',
+                  subtitle: 'Ghi nhận thu hoặc chi cho một hồ sơ',
+                  color: const Color(0xFF168A55),
+                  onTap: () => Navigator.pop(ctx, 'transaction'),
+                ),
+                const SizedBox(height: 10),
+                _QuickActionTile(
+                  icon: Icons.person_add_alt_1_rounded,
+                  title: 'Thêm hồ sơ',
+                  subtitle: 'Tạo hồ sơ mới',
+                  color: const Color(0xFFD97706),
+                  onTap: () => Navigator.pop(ctx, 'profile'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -268,4 +277,65 @@ class _FabConfig {
   const _FabConfig(this.tooltip, this.onPressed);
   final String tooltip;
   final VoidCallback onPressed;
+}
+
+class _QuickActionTile extends StatelessWidget {
+  const _QuickActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.surfaceContainer,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: colors.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: colors.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

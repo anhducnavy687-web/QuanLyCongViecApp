@@ -9,7 +9,12 @@ class SectionCard extends StatelessWidget {
   final Widget child;
   final Widget? trailing;
 
-  const SectionCard({super.key, required this.title, required this.child, this.trailing});
+  const SectionCard({
+    super.key,
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -24,13 +29,15 @@ class SectionCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: context.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    style: context.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 ?trailing,
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             child,
           ],
         ),

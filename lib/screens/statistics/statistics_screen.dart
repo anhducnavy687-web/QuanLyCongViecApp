@@ -74,7 +74,12 @@ class StatisticsScreen extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
-              childAspectRatio: 2.15,
+              childAspectRatio: responsiveValue(
+                context,
+                compact: 1.75,
+                medium: 2.05,
+                expanded: 2.15,
+              ),
               children: [
                 _StatCard(
                   label: 'Tổng hồ sơ',

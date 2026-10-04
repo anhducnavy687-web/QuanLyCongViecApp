@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../core/responsive/responsive.dart';
+import '../../core/theme/app_colors.dart';
 import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/empty_state.dart';
@@ -123,10 +124,20 @@ class _GroupCard extends StatelessWidget {
                     total,
                     context.colors.onSurfaceVariant,
                   ),
-                  _miniStat(context, 'Đang xử lý', inProgress, Colors.blue),
-                  _miniStat(context, 'Đang chờ', waiting, Colors.purple),
-                  _miniStat(context, 'Quá hạn', overdue, Colors.red),
-                  _miniStat(context, 'Hoàn thành', completed, Colors.green),
+                  _miniStat(
+                    context,
+                    'Đang xử lý',
+                    inProgress,
+                    AppColors.inProgress,
+                  ),
+                  _miniStat(context, 'Đang chờ', waiting, AppColors.waiting),
+                  _miniStat(context, 'Quá hạn', overdue, AppColors.overdue),
+                  _miniStat(
+                    context,
+                    'Hoàn thành',
+                    completed,
+                    AppColors.completed,
+                  ),
                 ],
               ),
             ],
@@ -141,7 +152,7 @@ class _GroupCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         '$label: $value',

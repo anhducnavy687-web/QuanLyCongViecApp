@@ -48,22 +48,24 @@ class _SearchScreenState extends State<SearchScreen> {
         : repo.groups.where((group) => group.id == _groupId).firstOrNull;
 
     return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          controller: _searchCtrl,
-          autofocus: widget.autofocusSearch,
-          decoration: const InputDecoration(
-            hintText: 'Tìm theo tên, SĐT, đích công việc...',
-            border: InputBorder.none,
-          ),
-          onChanged: (v) => setState(() => _query = v),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Danh sách hồ sơ')),
       body: ResponsivePage(
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: TextField(
+                controller: _searchCtrl,
+                autofocus: widget.autofocusSearch,
+                decoration: const InputDecoration(
+                  hintText: 'Tìm theo tên, SĐT, đích công việc...',
+                  prefixIcon: Icon(Icons.search_rounded),
+                ),
+                onChanged: (v) => setState(() => _query = v),
+              ),
+            ),
             SizedBox(
-              height: 48,
+              height: 52,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(
@@ -83,7 +85,6 @@ class _SearchScreenState extends State<SearchScreen> {
                 ],
               ),
             ),
-            const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Row(
@@ -160,35 +161,38 @@ class _SearchScreenState extends State<SearchScreen> {
     final selected = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const ListTile(
-              title: Text(
-                'Lọc theo nhóm công việc',
-                style: TextStyle(fontWeight: FontWeight.bold),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                title: Text(
+                  'Lọc theo nhóm công việc',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
-            ),
-            ListTile(
-              leading: Icon(
-                _groupId == null
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
-              ),
-              title: const Text('Tất cả nhóm'),
-              onTap: () => Navigator.pop(context, ''),
-            ),
-            for (final group in repo.groups)
               ListTile(
                 leading: Icon(
-                  _groupId == group.id
+                  _groupId == null
                       ? Icons.radio_button_checked
                       : Icons.radio_button_off,
                 ),
-                title: Text(group.name),
-                onTap: () => Navigator.pop(context, group.id),
+                title: const Text('Tất cả nhóm'),
+                onTap: () => Navigator.pop(context, ''),
               ),
-          ],
+              for (final group in repo.groups)
+                ListTile(
+                  leading: Icon(
+                    _groupId == group.id
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                  ),
+                  title: Text(group.name),
+                  onTap: () => Navigator.pop(context, group.id),
+                ),
+            ],
+          ),
         ),
       ),
     );

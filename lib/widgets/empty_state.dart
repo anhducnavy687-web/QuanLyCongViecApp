@@ -24,25 +24,34 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: context.colors.onSurfaceVariant.withValues(alpha: 0.5)),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: context.colors.primaryContainer.withValues(alpha: 0.65),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 32, color: context.colors.primary),
+            ),
             const SizedBox(height: 16),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: context.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: context.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             if (message != null) ...[
               const SizedBox(height: 8),
               Text(
                 message!,
                 textAlign: TextAlign.center,
-                style: context.textTheme.bodyMedium?.copyWith(color: context.colors.onSurfaceVariant),
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: context.colors.onSurfaceVariant,
+                ),
               ),
             ],
-            if (action != null) ...[
-              const SizedBox(height: 20),
-              action!,
-            ],
+            if (action != null) ...[const SizedBox(height: 20), action!],
           ],
         ),
       ),
