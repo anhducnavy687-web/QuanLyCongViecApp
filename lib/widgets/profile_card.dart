@@ -15,8 +15,14 @@ import 'timeline_bar.dart';
 class ProfileCard extends StatelessWidget {
   final ProfileAggregate aggregate;
   final bool showGroupLabel;
+  final bool compact;
 
-  const ProfileCard({super.key, required this.aggregate, this.showGroupLabel = false});
+  const ProfileCard({
+    super.key,
+    required this.aggregate,
+    this.showGroupLabel = false,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -111,15 +117,18 @@ class ProfileCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
-              TimelineBar(
-                startDate: profile.startDate,
-                deadline: profile.deadline,
-                hasDeadline: profile.hasDeadline,
-              ),
-              const SizedBox(height: 12),
-              MoneyBar(received: finance.received, total: finance.totalAmount),
-              const SizedBox(height: 10),
+              if (!compact) ...[
+                const SizedBox(height: 12),
+                TimelineBar(
+                  startDate: profile.startDate,
+                  deadline: profile.deadline,
+                  hasDeadline: profile.hasDeadline,
+                ),
+                const SizedBox(height: 12),
+                MoneyBar(received: finance.received, total: finance.totalAmount),
+                const SizedBox(height: 10),
+              ] else
+                const SizedBox(height: 8),
               StageProgressSummary(
                 currentStage: aggregate.currentStage,
                 completedCount: aggregate.completedStages.length,

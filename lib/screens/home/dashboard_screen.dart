@@ -14,6 +14,8 @@ import '../../widgets/stat_pill.dart';
 import '../profiles/profile_detail_screen.dart';
 import '../search/search_screen.dart' show ProfileFilter, SearchScreen;
 import '../tasks/tasks_screen.dart';
+import 'dashboard_bucket.dart';
+import 'dashboard_drilldown_screen.dart';
 
 const List<String> _weekdayNames = [
   'Thứ Hai',
@@ -68,6 +70,7 @@ class DashboardScreen extends StatelessWidget {
     final repo = context.watch<AppRepository>();
     final all = repo.allAggregates;
     final now = DateTime.now();
+    final buckets = DashboardBuckets.fromAggregates(all);
 
     final active = all
         .where((a) => a.deadlineCategory != DeadlineCategory.completed)
@@ -89,9 +92,6 @@ class DashboardScreen extends StatelessWidget {
     final doneList = all
         .where((a) => a.deadlineCategory == DeadlineCategory.completed)
         .toList();
-
-    final waitingCount = active.where((a) => a.isWaiting).length;
-    final noDeadlineCount = active.where((a) => !a.profile.hasDeadline).length;
 
     final todayTasks =
         repo.allOpenTasks
@@ -244,48 +244,54 @@ class DashboardScreen extends StatelessWidget {
                               StatPill(
                                 label: 'Quá hạn',
                                 value:
-                                    '${byCategory[DeadlineCategory.overdue]?.length ?? 0}',
+                                    '${buckets.count(DashboardBucket.overdue)}',
                                 icon: Icons.error_rounded,
                                 color: AppColors.overdue,
-                                onTap: () =>
-                                    _openFilter(context, ProfileFilter.overdue),
+                                onTap: () => _openBucket(
+                                  context,
+                                  DashboardBucket.overdue,
+                                ),
                               ),
                               StatPill(
                                 label: 'Hôm nay',
                                 value:
-                                    '${byCategory[DeadlineCategory.dueToday]?.length ?? 0}',
+                                    '${buckets.count(DashboardBucket.today)}',
                                 icon: Icons.today_rounded,
                                 color: AppColors.dueToday,
                                 onTap: () =>
-                                    _openFilter(context, ProfileFilter.today),
+                                    _openBucket(context, DashboardBucket.today),
                               ),
                               StatPill(
                                 label: 'Đang chờ',
-                                value: '$waitingCount',
+                                value:
+                                    '${buckets.count(DashboardBucket.waiting)}',
                                 icon: Icons.hourglass_top_rounded,
                                 color: AppColors.waiting,
-                                onTap: () =>
-                                    _openFilter(context, ProfileFilter.waiting),
+                                onTap: () => _openBucket(
+                                  context,
+                                  DashboardBucket.waiting,
+                                ),
                               ),
                               StatPill(
                                 label: 'Sắp tới',
                                 value:
-                                    '${byCategory[DeadlineCategory.upcoming]?.length ?? 0}',
+                                    '${buckets.count(DashboardBucket.upcoming)}',
                                 icon: Icons.schedule_rounded,
                                 color: AppColors.upcoming,
-                                onTap: () => _openFilter(
+                                onTap: () => _openBucket(
                                   context,
-                                  ProfileFilter.upcoming,
+                                  DashboardBucket.upcoming,
                                 ),
                               ),
                               StatPill(
                                 label: 'Không có hạn',
-                                value: '$noDeadlineCount',
+                                value:
+                                    '${buckets.count(DashboardBucket.noDeadline)}',
                                 icon: Icons.event_busy_rounded,
                                 color: AppColors.neutral,
-                                onTap: () => _openFilter(
+                                onTap: () => _openBucket(
                                   context,
-                                  ProfileFilter.noDeadline,
+                                  DashboardBucket.noDeadline,
                                 ),
                               ),
                             ],
@@ -340,6 +346,12 @@ void _openFilter(BuildContext context, ProfileFilter filter) {
       builder: (_) =>
           SearchScreen(initialFilter: filter, autofocusSearch: false),
     ),
+  );
+}
+
+void _openBucket(BuildContext context, DashboardBucket bucket) {
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => DashboardDrilldownScreen(bucket: bucket)),
   );
 }
 
@@ -432,6 +444,7 @@ class _DashboardHeader extends StatelessWidget {
 /// ưu tiên. [extraSubtitle] cho phép chèn thêm thông tin (VD: số ngày quá
 /// hạn) vào dòng phụ.
 class _TaskMiniListSection extends StatelessWidget {
+  static const int _previewLimit = 4;
   final IconData icon;
   final Color? iconColor;
   final String title;
@@ -450,6 +463,7 @@ class _TaskMiniListSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final previewTasks = tasks.take(_previewLimit).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -465,10 +479,18 @@ class _TaskMiniListSection extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const Spacer(),
+              if (tasks.length > _previewLimit)
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TasksScreen()),
+                  ),
+                  child: const Text('Xem tất cả'),
+                ),
             ],
           ),
         ),
-        ...tasks.map(
+        ...previewTasks.map(
           (t) => _TaskMiniTile(
             repo: repo,
             task: t,
@@ -762,10 +784,14 @@ class _Section extends StatelessWidget {
               children: [
                 Container(width: 4, height: 16, color: _color),
                 const SizedBox(width: 8),
-                Text(
-                  '${category.label} (${items.length})',
-                  style: context.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    '${category.label} (${items.length})',
+                    style: context.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -781,7 +807,11 @@ class _Section extends StatelessWidget {
         ...items.map(
           (a) => Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: ProfileCard(aggregate: a, showGroupLabel: true),
+            child: ProfileCard(
+              aggregate: a,
+              showGroupLabel: true,
+              compact: true,
+            ),
           ),
         ),
       ],

@@ -19,10 +19,13 @@ class StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
+    return Semantics(
+      button: onTap != null,
+      label: onTap == null ? null : '$label, $value, nhấn để xem',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
         width: 112,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
@@ -40,13 +43,22 @@ class StatPill extends StatelessWidget {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: color),
             ),
             const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(fontSize: 10.5, color: color.withValues(alpha: 0.85), height: 1.15),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(fontSize: 10.5, color: color.withValues(alpha: 0.85), height: 1.15),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (onTap != null)
+                  Icon(Icons.chevron_right_rounded, size: 14, color: color),
+              ],
             ),
           ],
+        ),
         ),
       ),
     );

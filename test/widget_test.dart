@@ -13,6 +13,7 @@ import 'package:quanlycongviecapp/app.dart';
 import 'package:quanlycongviecapp/navigation/app_session.dart';
 import 'package:quanlycongviecapp/navigation/theme_controller.dart';
 import 'package:quanlycongviecapp/services/connectivity_service.dart';
+import 'package:quanlycongviecapp/screens/home/dashboard_drilldown_screen.dart';
 import 'package:quanlycongviecapp/widgets/profile_card.dart';
 
 Future<AppSession> _bootDemoApp(WidgetTester tester) async {
@@ -118,7 +119,7 @@ void main() {
     expect(find.textContaining('Việc hôm nay'), findsOneWidget);
   });
 
-  testWidgets('Chạm StatPill "Đang chờ" mở SearchScreen với filter tương ứng', (
+  testWidgets('Chạm StatPill "Đang chờ" mở drill-down cùng bucket', (
     tester,
   ) async {
     await _bootDemoApp(tester);
@@ -128,9 +129,31 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(tester.takeException(), isNull);
-    // SearchScreen mở ra với ô tìm kiếm ở AppBar.
+    expect(find.byType(DashboardDrilldownScreen), findsOneWidget);
     expect(find.text('Đang chờ'), findsWidgets);
   });
+
+  for (final label in [
+    'Quá hạn',
+    'Hôm nay',
+    'Đang chờ',
+    'Sắp tới',
+    'Không có hạn',
+  ]) {
+    testWidgets('Stat card $label mở reusable drill-down đúng title', (
+      tester,
+    ) async {
+      await _bootDemoApp(tester);
+
+      await tester.tap(find.text(label).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(DashboardDrilldownScreen), findsOneWidget);
+      expect(find.text(label), findsWidgets);
+    });
+  }
 
   testWidgets('Mở được màn hình Việc cần làm (TasksScreen) từ Dashboard', (
     tester,
