@@ -5,7 +5,7 @@ import '../../core/utils/repository_action.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/empty_state.dart';
 import 'add_edit_profile_screen.dart';
-import 'trich_ngang_screen.dart';
+import 'profile_excerpt_sheet.dart';
 import 'widgets/profile_detail_header.dart';
 import 'widgets/profile_documents_history_tab.dart';
 import 'widgets/profile_finance_collaborator_tab.dart';
@@ -59,11 +59,24 @@ class ProfileDetailScreen extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.description_outlined),
               tooltip: 'Trích ngang',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => TrichNgangScreen(profileId: profileId),
-                ),
-              ),
+              onPressed: () {
+                final group = aggregate.group;
+                if (group == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Không tìm thấy cấu hình nhóm.'),
+                    ),
+                  );
+                  return;
+                }
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (_) =>
+                      ProfileExcerptSheet(profile: profile, group: group),
+                );
+              },
             ),
             PopupMenuButton<String>(
               tooltip: 'Thêm tùy chọn',

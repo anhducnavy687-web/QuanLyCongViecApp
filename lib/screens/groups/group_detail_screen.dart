@@ -9,6 +9,7 @@ import '../../repositories/app_repository.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/profile_card.dart';
 import 'add_edit_group_sheet.dart';
+import 'group_information_template_sheet.dart';
 
 class GroupDetailScreen extends StatelessWidget {
   final String groupId;
@@ -69,6 +70,22 @@ class GroupDetailScreen extends StatelessWidget {
                   style: context.textTheme.bodyMedium,
                 ),
               ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Card(
+                child: ListTile(
+                  leading: const Icon(Icons.content_copy_rounded),
+                  title: const Text('Mẫu thu thập thông tin'),
+                  subtitle: const Text('Tạo mẫu để gửi người khác điền'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => showResponsiveFormSheet<void>(
+                    context: context,
+                    dialogMaxWidth: 620,
+                    builder: (_) => GroupInformationTemplateSheet(group: group),
+                  ),
+                ),
+              ),
+            ),
             Expanded(
               child: aggregates.isEmpty
                   ? const EmptyState(

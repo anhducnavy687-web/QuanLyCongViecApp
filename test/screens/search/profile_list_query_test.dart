@@ -52,7 +52,7 @@ void main() {
         name: 'Trần Thị Lan',
         groupId: 'g1',
         updatedAt: now.subtract(const Duration(days: 2)),
-        deadline: now.subtract(const Duration(days: 1)),
+        deadline: DateTime(2000),
         phone: '0901234567',
         citizenId: '001234567890',
         rank: 'Đại úy',
@@ -67,7 +67,6 @@ void main() {
         groupId: 'g2',
         updatedAt: now.subtract(const Duration(days: 4)),
         status: ProfileStatus.waiting,
-        deadline: now.add(const Duration(days: 5)),
       ),
       item(
         id: 'binh',
