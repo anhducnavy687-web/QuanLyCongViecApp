@@ -145,6 +145,26 @@ void main() {
       expect(decoded.fileName, att.fileName);
       expect(decoded.type, AttachmentType.pdf);
       expect(decoded.sizeBytes, 12345);
+      expect(decoded.storageProvider, AttachmentStorageProvider.legacy);
+      expect(
+        Attachment.fromJson({...att.toJson(), 'storageProvider': 'future'})
+            .storageProvider,
+        AttachmentStorageProvider.legacy,
+      );
+
+      final drive = att.copyWith(
+        localPathOrUrl: 'https://drive.google.com/file/d/file-1/view',
+        storageProvider: AttachmentStorageProvider.googleDrive,
+        externalFileId: 'file-1',
+        mimeType: 'application/pdf',
+      );
+      final driveDecoded = Attachment.fromJson(drive.toJson());
+      expect(
+        driveDecoded.storageProvider,
+        AttachmentStorageProvider.googleDrive,
+      );
+      expect(driveDecoded.externalFileId, 'file-1');
+      expect(driveDecoded.mimeType, 'application/pdf');
     });
 
     test('Profile với trạng thái Đang chờ (waiting fields)', () {

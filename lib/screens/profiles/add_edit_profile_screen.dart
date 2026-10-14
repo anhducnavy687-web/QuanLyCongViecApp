@@ -10,6 +10,7 @@ import '../../core/utils/validators.dart';
 import '../../models/models.dart';
 import '../../repositories/app_repository.dart';
 import '../../widgets/waiting_reason_chips.dart';
+import 'profile_smart_paste_sheet.dart';
 
 /// Form Thêm/Sửa hồ sơ. Khi tạo mới, hồ sơ tự động được gán 5 bước xử lý
 /// mặc định (xem AppRepository.addProfile).
@@ -149,6 +150,41 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
       lastDate: DateTime(2100),
     );
     if (picked != null) onPicked(picked);
+  }
+
+  Future<void> _openSmartPaste(WorkGroup group) async {
+    final groupIdAtOpen = group.id;
+    final values = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => ProfileSmartPasteSheet(group: group),
+    );
+    if (!mounted || values == null) return;
+    if (_groupId != groupIdAtOpen) {
+      context.showSnackBar(
+        'Nhóm đã thay đổi. Vui lòng phân tích lại thông tin.',
+        isError: true,
+      );
+      return;
+    }
+    var applied = 0;
+    var protected = 0;
+    setState(() {
+      for (final entry in values.entries) {
+        final controller = _controllerFor(entry.key);
+        if (controller.text.trim().isNotEmpty) {
+          protected++;
+          continue;
+        }
+        controller.text = entry.value;
+        applied++;
+      }
+    });
+    final suffix = protected == 0
+        ? ''
+        : ' $protected trường đã có dữ liệu được giữ nguyên.';
+    context.showSnackBar('Đã điền $applied trường.$suffix');
   }
 
   Future<void> _save() async {
@@ -368,6 +404,18 @@ class _AddEditProfileScreenState extends State<AddEditProfileScreen> {
                 validator: (value) =>
                     value == null ? 'Vui lòng chọn nhóm công việc.' : null,
               ),
+              if (!_isEdit && selectedGroup != null) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    key: const Key('profile-smart-paste-action'),
+                    onPressed: () => _openSmartPaste(selectedGroup),
+                    icon: const Icon(Icons.content_paste_go_rounded),
+                    label: const Text('Dán thông tin'),
+                  ),
+                ),
+              ],
               ..._dynamicWidgets(selectedGroup, aspirationsOnly: false),
               ..._dynamicWidgets(selectedGroup, aspirationsOnly: true),
               const SizedBox(height: 16),

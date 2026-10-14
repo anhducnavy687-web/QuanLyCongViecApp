@@ -504,6 +504,9 @@ class BackupImportService {
     'localPathOrUrl': '?s',
     'storagePath': '?s',
     'sizeBytes': 'i',
+    'storageProvider': '?s',
+    'externalFileId': '?s',
+    'mimeType': '?s',
     'createdAt': 't',
     'updatedAt': 't',
   };

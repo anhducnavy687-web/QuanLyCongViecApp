@@ -1,3 +1,11 @@
+enum AttachmentStorageProvider {
+  legacy,
+  googleDrive;
+
+  static AttachmentStorageProvider fromValue(Object? value) =>
+      value == 'googleDrive' ? googleDrive : legacy;
+}
+
 enum AttachmentType {
   pdf,
   doc,
@@ -24,8 +32,8 @@ enum AttachmentType {
 }
 
 /// Metadata của một file/tài liệu đính kèm hồ sơ.
-/// File thực tế được lưu ở Firebase Storage (khi online) hoặc trên máy
-/// (Demo Mode); model này chỉ lưu thông tin mô tả.
+/// File thực tế có thể nằm trên máy (Demo/legacy) hoặc Google Drive;
+/// model này chỉ lưu metadata và liên kết.
 class Attachment {
   final String id;
   final String profileId;
@@ -38,6 +46,9 @@ class Attachment {
   /// Storage path dự kiến: users/{uid}/profiles/{profileId}/attachments/{id}
   final String? storagePath;
   final int sizeBytes;
+  final AttachmentStorageProvider storageProvider;
+  final String? externalFileId;
+  final String? mimeType;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -49,6 +60,9 @@ class Attachment {
     required this.localPathOrUrl,
     this.storagePath,
     this.sizeBytes = 0,
+    this.storageProvider = AttachmentStorageProvider.legacy,
+    this.externalFileId,
+    this.mimeType,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -61,6 +75,9 @@ class Attachment {
     String? localPathOrUrl,
     String? storagePath,
     int? sizeBytes,
+    AttachmentStorageProvider? storageProvider,
+    String? externalFileId,
+    String? mimeType,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -72,6 +89,9 @@ class Attachment {
       localPathOrUrl: localPathOrUrl ?? this.localPathOrUrl,
       storagePath: storagePath ?? this.storagePath,
       sizeBytes: sizeBytes ?? this.sizeBytes,
+      storageProvider: storageProvider ?? this.storageProvider,
+      externalFileId: externalFileId ?? this.externalFileId,
+      mimeType: mimeType ?? this.mimeType,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -86,6 +106,11 @@ class Attachment {
       localPathOrUrl: json['localPathOrUrl'] as String?,
       storagePath: json['storagePath'] as String?,
       sizeBytes: json['sizeBytes'] as int? ?? 0,
+      storageProvider: AttachmentStorageProvider.fromValue(
+        json['storageProvider'],
+      ),
+      externalFileId: json['externalFileId'] as String?,
+      mimeType: json['mimeType'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -100,6 +125,9 @@ class Attachment {
       'localPathOrUrl': localPathOrUrl,
       'storagePath': storagePath,
       'sizeBytes': sizeBytes,
+      'storageProvider': storageProvider.name,
+      'externalFileId': externalFileId,
+      'mimeType': mimeType,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
